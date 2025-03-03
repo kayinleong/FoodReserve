@@ -1,0 +1,24 @@
+﻿@page "/dashboard/staff"
+
+@inject StaffService staffService
+
+<AuthorizeView Roles="SUPERUSER,ADMIN">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudText Typo="Typo.h4" Class="ml-3">
+            Staff
+        </MudText>
+
+        @* Table *@
+
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+
+    }
+}

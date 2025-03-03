@@ -1,0 +1,25 @@
+﻿@page "/dashboard"
+
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+
+<AuthorizeView Roles="SUPERUSER,ADMIN">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudText Typo="Typo.h4" Class="ml-3">
+            Dashboard
+        </MudText>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    public string UserName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authstate = await GetAuthenticationStateAsync.GetAuthenticationStateAsync();
+        var user = authstate.User;
+        UserName = user.Identity.Name;
+    }
+}

@@ -1,0 +1,87 @@
+﻿@page "/auth/login"
+@page "/auth/login/{ReturnUrl}"
+
+@using System.ComponentModel.DataAnnotations
+@using FoodReserve.AdminPortal.Services.Auth
+@inject NavigationManager NavigationManager
+@inject AuthService AuthService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Small">
+    <MudPaper Elevation="3" Class="pa-8 mt-8">
+        <MudText Typo="Typo.h4" Class="mb-4" Align="Align.Center">Login</MudText>
+
+        <MudForm @ref="Form" @bind-IsValid="@Success">
+            <MudTextField T="string"
+                          Label="Username"
+                          @bind-Value="Username"
+                          Required="true"
+                          RequiredError="Username is required!"
+                          InputType="InputType.Text"
+                          Variant="Variant.Text"></MudTextField>
+
+            <MudTextField T="string"
+                          Label="Password"
+                          @bind-Value="Password"
+                          Required="true"
+                          RequiredError="Password is required!"
+                          InputType="InputType.Password"
+                          Variant="Variant.Text"
+                          Class="mt-3" />
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       FullWidth="true"
+                       OnClick="HandleLogin"
+                       Disabled="@IsLoading"
+                       Class="mt-6">
+                @if (IsLoading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Processing</MudText>
+                }
+                else
+                {
+                    <MudText>Login</MudText>
+                }
+            </MudButton>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Parameter]
+    public string? ReturnUrl { get; set; }
+
+    public bool Success { get; set; } = false;
+    public bool IsLoading { get; set; } = false;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public MudForm Form;
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            await Form.Validate();
+
+            if (Form.IsValid)
+            {
+                IsLoading = true;
+
+                bool success = await AuthService.LoginAsync(Username, Password);
+                if (success)
+                {
+                    NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl)
+                        ? "/"
+                        : Uri.UnescapeDataString(ReturnUrl));
+                }
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}
