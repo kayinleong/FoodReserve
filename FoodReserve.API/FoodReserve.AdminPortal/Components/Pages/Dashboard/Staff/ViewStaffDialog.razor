@@ -1,0 +1,71 @@
+@inject OutletUserService OutletUserService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Class="mr-2" />
+            Staff Details
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (User != null)
+        {
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Username" Value="@User.Username" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Email" Value="@User.Email" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Status" ReadOnly="true" Variant="Variant.Outlined"
+                                            Value="@(User.IsDeleted ? "Deleted" : User.IsSuspended ? "Suspended" : "Active")" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Role" ReadOnly="true" Variant="Variant.Outlined"
+                                            Value="@GetRoleName(User.Role)" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Created At" Value="@User.CreatedAt.ToLocalTime().ToString("g")" 
+                                            ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Last Updated" Value="@User.UpdatedAt.ToLocalTime().ToString("g")" 
+                                            ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+        else
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public UserResponse User { get; set; } = default!;
+
+    private void Close() => MudDialog.Close();
+
+    private string GetRoleName(int roleId)
+    {
+        return roleId switch
+        {
+            1 => "Superuser",
+            2 => "Admin",
+            3 => "Staff",
+            _ => "Unknown"
+        };
+    }
+}

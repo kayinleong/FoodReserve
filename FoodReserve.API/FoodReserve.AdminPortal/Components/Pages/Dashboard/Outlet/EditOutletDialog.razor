@@ -1,0 +1,170 @@
+@inject OutletService OutletService
+@inject IDialogService DialogService
+@using FoodReserve.AdminPortal.Helpers
+@using System.Text.Json
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+            Edit Outlet
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Outlet != null && OutletEditModel != null)
+        {
+            <MudForm @ref="form" Model="OutletEditModel" ValidationDelay="0">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudPaper Class="pa-4" Elevation="0">
+                            <MudGrid>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField @bind-Value="OutletEditModel.Name" Label="Name"
+                                                  Required="true" RequiredError="Name is required"
+                                                  Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField @bind-Value="OutletEditModel.Location" Label="Location"
+                                                  Required="true" RequiredError="Location is required"
+                                                  Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2">Operating Hours</MudText>
+                                    <div class="d-flex gap-4">
+                                        <MudSelect T="string" Value="StartTime"
+                                                   ValueChanged="(value) => { StartTime = value; UpdateOperatingHours(); }"
+                                                   Label="Opening Time"
+                                                   Required="true"
+                                                   RequiredError="Opening time is required"
+                                                   Variant="Variant.Outlined"
+                                                   AnchorOrigin="Origin.BottomCenter"
+                                                   Class="flex-grow-1">
+                                            @foreach (var time in OperatingHoursHelper.TimeOptions)
+                                            {
+                                                <MudSelectItem Value="@time">@time</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                        <MudSelect T="string" Value="EndTime"
+                                                   ValueChanged="(value) => { EndTime = value; UpdateOperatingHours(); }"
+                                                   Label="Closing Time"
+                                                   Required="true"
+                                                   RequiredError="Closing time is required"
+                                                   Variant="Variant.Outlined"
+                                                   AnchorOrigin="Origin.BottomCenter"
+                                                   Class="flex-grow-1">
+                                            @foreach (var time in OperatingHoursHelper.TimeOptions)
+                                            {
+                                                <MudSelectItem Value="@time">@time</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </div>
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="OutletEditModel.Capacity" Label="Capacity"
+                                                  Required="true" RequiredError="Capacity is required"
+                                                  Variant="Variant.Outlined" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        }
+        else
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Default" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" Disabled="@IsProcessing">
+            @if (IsProcessing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <span class="ms-2">Processing</span>
+            }
+            else
+            {
+                <span>Save Changes</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public OutletResponse Outlet { get; set; } = default!;
+
+    private OutletRequest OutletEditModel { get; set; } = new();
+    private MudForm form;
+    private bool IsProcessing = false;
+    private string StartTime { get; set; } = "09:00";
+    private string EndTime { get; set; } = "17:00";
+
+    protected override async Task OnInitializedAsync()
+    {
+        OutletEditModel = new OutletRequest
+            {
+                Name = Outlet.Name,
+                Location = Outlet.Location,
+                Capacity = Outlet.Capacity,
+            };
+
+        // Parse operating hours from JSON
+        try
+        {
+            var hours = JsonSerializer.Deserialize<string[]>(Outlet.OperatingHours);
+            if (hours != null && hours.Length >= 2)
+            {
+                StartTime = hours[0];
+                EndTime = hours[1];
+            }
+        }
+        catch
+        {
+            // Use default values if parsing fails
+        }
+
+        // Set the operating hours in the model
+        UpdateOperatingHours();
+
+        await OutletService.InitializeAsync();
+    }
+
+    private void UpdateOperatingHours()
+    {
+        OutletEditModel.OperatingHours = OperatingHoursHelper.CreateOperatingHoursJson(StartTime, EndTime);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            IsProcessing = true;
+            try
+            {
+                await OutletService.UpdateAsync(Outlet.Id, OutletEditModel);
+                MudDialog.Close(DialogResult.Ok(true));
+
+                await DialogService.ShowMessageBox(
+                    "Success",
+                    "Outlet updated successfully.",
+                    yesText: "OK");
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox(
+                    "Error",
+                    $"Failed to update outlet: {ex.Message}",
+                    yesText: "OK");
+            }
+            finally
+            {
+                IsProcessing = false;
+            }
+        }
+    }
+}

@@ -17,7 +17,6 @@
 
     <ItemGroup>
       <Folder Include="Components\Pages\Dashboard\Customer\" />
-      <Folder Include="Components\Pages\Dashboard\Outlet\" />
     </ItemGroup>
 
 </Project>

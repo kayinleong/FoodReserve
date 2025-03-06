@@ -11,7 +11,7 @@ namespace FoodReserve.API.Controllers
     [ApiController]
     [Authorize(Roles = "SUPERUSER,ADMIN")]
     [Route("api/[controller]")]
-    public class StaffController(UserService userService) : ControllerBase
+    public class OutletUserController(UserService userService) : ControllerBase
     {
         [HttpGet]
         public PaginatedResponse<IEnumerable<UserResponse>> GetAll(int pageNumber, int pageSize, string? keyword)

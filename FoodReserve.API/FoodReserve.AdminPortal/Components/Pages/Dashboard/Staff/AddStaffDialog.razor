@@ -1,0 +1,105 @@
+﻿@inject OutletUserService OutletUserService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Class="mr-2" />
+            Add New Staff
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="form" Model="StaffModel" ValidationDelay="0">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudTextField @bind-Value="StaffModel.Username"
+                                              Label="Username"
+                                              Required="true"
+                                              RequiredError="Username is required"
+                                              Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField @bind-Value="StaffModel.Email"
+                                              Label="Email"
+                                              Required="true"
+                                              RequiredError="Email is required"
+                                              Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="StaffModel.Password"
+                                              Label="Password"
+                                              Required="true"
+                                              RequiredError="Password is required"
+                                              Type="InputType.Password"
+                                              Variant="Variant.Outlined" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Default" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" Disabled="@IsProcessing">
+            @if (IsProcessing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <span class="ms-2">Processing</span>
+            }
+            else
+            {
+                <span>Add Staff</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private UserCreateRequest StaffModel { get; set; } = new();
+    private MudForm form;
+    private bool IsProcessing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await OutletUserService.InitializeAsync();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            IsProcessing = true;
+            try
+            {
+                await OutletUserService.CreateAsync(StaffModel);
+                MudDialog.Close(DialogResult.Ok(true));
+
+                // Show success notification
+                await DialogService.ShowMessageBox(
+                    "Success",
+                    "Staff member added successfully.",
+                    yesText: "OK");
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox(
+                    "Error",
+                    $"Failed to add staff: {ex.Message}",
+                    yesText: "OK");
+            }
+            finally
+            {
+                IsProcessing = false;
+            }
+        }
+    }
+}

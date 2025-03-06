@@ -10,7 +10,9 @@ namespace FoodReserve.AdminPortal.Extensions
         {
             services.AddMudServices();
             services.AddScoped<AuthService>();
-            services.AddScoped<StaffService>();
+            services.AddScoped<OutletService>();
+            services.AddScoped<OutletUserService>();
+            services.AddScoped<OutletStaffService>();
         }
     }
 }

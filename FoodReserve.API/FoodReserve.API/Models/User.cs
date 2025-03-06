@@ -56,7 +56,8 @@ namespace FoodReserve.API.Models
                 Username = userUpdateRequest.Username!,
                 Email = userUpdateRequest.Email!,
                 PasswordHashed = userUpdateRequest.Password!,
-                Role = UserRole.GUEST
+                Role = UserRole.GUEST,
+                IsSuspended = userUpdateRequest.IsSuspended 
             };
         }
     }

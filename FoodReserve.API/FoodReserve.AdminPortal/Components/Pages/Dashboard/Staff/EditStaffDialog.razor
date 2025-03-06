@@ -1,0 +1,119 @@
+@inject OutletUserService OutletUserService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+            Edit Staff
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (User != null && UserEditModel != null)
+        {
+            <MudForm @ref="form" Model="UserEditModel" ValidationDelay="0">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudPaper Class="pa-4" Elevation="0">
+                            <MudGrid>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField @bind-Value="UserEditModel.Username" Label="Username" 
+                                                Required="true" RequiredError="Username is required"
+                                                Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField @bind-Value="UserEditModel.Email" Label="Email" 
+                                                Required="true" RequiredError="Email is required"
+                                                Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="UserEditModel.Password" Label="New Password (leave blank to keep current)" 
+                                                Type="InputType.Password" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudCheckBox @bind-Value="UserEditModel.IsSuspended" Label="Is Suspended?" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        }
+        else
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Default" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" Disabled="@IsProcessing">
+            @if (IsProcessing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <span class="ms-2">Processing</span>
+            }
+            else
+            {
+                <span>Save Changes</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public UserResponse User { get; set; } = default!;
+    
+    private UserUpdateRequest UserEditModel { get; set; } = new();
+    private MudForm form;
+    private bool IsProcessing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserEditModel = new UserUpdateRequest
+        {
+            Username = User.Username,
+            Email = User.Email,
+            Password = string.Empty,
+            IsSuspended = User.IsSuspended 
+        };
+        await OutletUserService.InitializeAsync();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            IsProcessing = true;
+            try
+            {
+                if (string.IsNullOrEmpty(UserEditModel.Password))
+                {
+                    UserEditModel.Password = string.Empty;
+                }
+                
+                await OutletUserService.UpdateAsync(User.Id, UserEditModel);
+                MudDialog.Close(DialogResult.Ok(true));
+                
+                await DialogService.ShowMessageBox(
+                    "Success",
+                    "Staff member updated successfully.",
+                    yesText: "OK");
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox(
+                    "Error",
+                    $"Failed to update staff: {ex.Message}",
+                    yesText: "OK");
+            }
+            finally
+            {
+                IsProcessing = false;
+            }
+        }
+    }
+}

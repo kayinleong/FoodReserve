@@ -1,0 +1,234 @@
+﻿@page "/dashboard/outlet"
+
+@inject OutletService OutletService
+@inject IDialogService DialogService
+
+<AuthorizeView Roles="SUPERUSER,ADMIN">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudText Typo="Typo.h4" Class="ml-3">
+            Outlet
+        </MudText>
+
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Class="mb-4">
+                <MudTextField @bind-Value="Keyword"
+                              Label="Search"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              OnAdornmentClick="SearchOutlet"
+                              OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchOutlet(); } })"
+                              Immediate="true"
+                              Size="Size.Small"
+                              Density="Density.Compact"
+                              Style="max-width: 300px;" />
+
+                <MudSpacer />
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Size="Size.Small"
+                           Density="Density.Compact"
+                           OnClick="AddOutlet">
+                    Add Outlet
+                </MudButton>
+            </MudStack>
+
+            <MudTable @ref="table"
+                      Dense="true"
+                      Hover="true"
+                      ServerData="@(new Func<TableState, CancellationToken, Task<TableData<OutletResponse>>>(ServerReload))"
+                      Loading="@(Data == null)"
+                      Striped="true"
+                      FixedHeader="true"
+                      FixedFooter="true"
+                      Height="calc(100vh - 300px)"
+                      Items="@Data?.Response">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Outlets</MudText>
+                    <MudSpacer />
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortLabel="name" T="OutletResponse">Name</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortLabel="location" T="OutletResponse">Location</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortLabel="capacity" T="OutletResponse">Capacity</MudTableSortLabel></MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="outlet">
+                    <MudTd DataLabel="Name">@outlet.Name</MudTd>
+                    <MudTd DataLabel="Location">@outlet.Location</MudTd>
+                    <MudTd DataLabel="Capacity">@outlet.Capacity</MudTd>
+                    <MudTd>
+                        <MudStack Row="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Color="Color.Info"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ViewOutlet(outlet.Id))"
+                                           Title="View" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           OnClick="@(() => EditOutlet(outlet.Id))"
+                                           Title="Edit" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => DeleteOutlet(outlet.Id))"
+                                           Title="Delete" />
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4">No outlet found.</MudText>
+                </NoRecordsContent>
+                <LoadingContent>
+                    <MudText Class="pa-4">Loading outlet data...</MudText>
+                </LoadingContent>
+                <PagerContent>
+                    <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
+                </PagerContent>
+            </MudTable>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private MudTable<OutletResponse> table;
+    public PaginatedResponse<IEnumerable<OutletResponse>>? Data;
+    public int PageNumber = 1;
+    public int PageSize = 10;
+    public string Keyword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await OutletService.InitializeAsync();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        Data = await OutletService.GetAllAsync(PageNumber, PageSize, Keyword);
+    }
+
+    private async Task<TableData<OutletResponse>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        PageNumber = state.Page + 1;
+        PageSize = state.PageSize;
+
+        await LoadData();
+
+        return new TableData<OutletResponse>
+            {
+                TotalItems = Data.TotalCount,
+                Items = Data?.Response ?? Enumerable.Empty<OutletResponse>()
+            };
+    }
+
+    private async Task SearchOutlet()
+    {
+        PageNumber = 1;
+        await LoadData();
+        await table.ReloadServerData();
+    }
+
+    private async Task AddOutlet()
+    {
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
+
+        var dialog = await DialogService.ShowAsync<AddOutletDialog>("Add New Outlet", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await table.ReloadServerData();
+        }
+    }
+
+    private async Task ViewOutlet(string id)
+    {
+        try
+        {
+            var outlet = await OutletService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Outlet"] = outlet
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<ViewOutletDialog>("Outlet Details", parameters, options);
+            await dialog.Result;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load outlet details: {ex.Message}");
+        }
+    }
+
+    private async Task EditOutlet(string id)
+    {
+        try
+        {
+            var outlet = await OutletService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Outlet"] = outlet
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<EditOutletDialog>("Edit Outlet", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                await table.ReloadServerData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load outlet for editing: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteOutlet(string id)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Delete Confirmation",
+            "Are you sure you want to delete this outlet?",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            try
+            {
+                await OutletService.DeleteAsync(id);
+                await table.ReloadServerData();
+            }
+            catch (Exception ex)
+            {
+                // Handle exception
+            }
+        }
+    }
+}

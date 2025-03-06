@@ -6,5 +6,7 @@ namespace FoodReserve.API.Context
     public class DatabaseContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<User> Users { get; set; }
+        public DbSet<Staff> Staff { get; set; }
+        public DbSet<Outlet> Outlets { get; set; }
     }
 }

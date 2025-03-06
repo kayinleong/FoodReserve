@@ -134,15 +134,19 @@ namespace FoodReserve.API.Services
                 throw new InvalidOperationException("Email already exists");
             }
 
-            user.Username = user.Username;
-            user.Email = user.Email;
-            user.Role = user.Role;
-            user.IsSuspended = user.IsSuspended;
-            user.PasswordHashed = passwordHasher.HashPassword(user, user.PasswordHashed);
+            existingUser.Username = user.Username;
+            existingUser.Email = user.Email;
+            existingUser.Role = user.Role;
+            existingUser.IsSuspended = user.IsSuspended;
+
+            if (!string.IsNullOrEmpty(user.PasswordHashed))
+            {
+                existingUser.PasswordHashed = passwordHasher.HashPassword(user, user.PasswordHashed);
+            }
 
             try
             {
-                context.Users.Update(user);
+                context.Users.Update(existingUser);
                 await context.SaveChangesAsync();
             }
             catch

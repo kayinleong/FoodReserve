@@ -1,0 +1,172 @@
+@inject OutletStaffService OutletStaffService
+@inject OutletService OutletService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            Staff Permissions for @Username
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (IsLoading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <MudForm Model="@StaffModel" @ref="@form" Validation="@(StaffValidator.ValidateValue)">
+                <MudCard>
+                    <MudCardContent>
+                        <MudSelect T="string" Label="Outlets" 
+                                   MultiSelection="true"
+                                   SelectedValues="SelectedOutlets"
+                                   SelectedValuesChanged="@((IEnumerable<string> values) => SelectedOutletsChanged(values))"
+                                   Required="true"
+                                   RequiredError="At least one outlet must be selected">
+                            @foreach (var outlet in AvailableOutlets)
+                            {
+                                <MudSelectItem T="string" Value="@outlet.Name">@outlet.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudTextField T="string" 
+                                     @bind-Value="StaffModel.Permissions"
+                                     Label="Permissions"
+                                     Required="true"
+                                     RequiredError="Permissions are required"
+                                     HelperText="Define permissions as comma-separated values"
+                                     Immediate="true"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Lines="3" />
+                    </MudCardContent>
+                </MudCard>
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                   OnClick="Submit" 
+                   Disabled="@(IsLoading || !IsFormValid)">
+            @(ExistingStaffId == null ? "Create" : "Update")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string UserId { get; set; } = string.Empty;
+    [Parameter] public string Username { get; set; } = string.Empty;
+    
+    private StaffRequest StaffModel { get; set; } = new StaffRequest();
+    private HashSet<string> SelectedOutlets { get; set; } = new();
+    private List<OutletResponse> AvailableOutlets { get; set; } = new();
+    private string? ExistingStaffId { get; set; }
+    private bool IsLoading { get; set; } = true;
+    private bool IsFormValid => SelectedOutlets.Count > 0 && !string.IsNullOrEmpty(StaffModel.Permissions);
+    private MudForm form;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            
+            // Initialize services
+            await OutletStaffService.InitializeAsync();
+            await OutletService.InitializeAsync();
+            
+            // Get all available outlets
+            var outletResponse = await OutletService.GetAllAsync(1, 100, null);
+            AvailableOutlets = outletResponse.Response.ToList();
+            
+            // Check if staff exists for this user
+            var existingStaff = await OutletStaffService.TryGetByUserIdAsync(UserId);
+            
+            if (existingStaff != null)
+            {
+                ExistingStaffId = existingStaff.Id;
+                StaffModel.Permissions = existingStaff.Permissions;
+                StaffModel.UserId = UserId;
+                SelectedOutlets = new HashSet<string>(existingStaff.OutletIds.Select(id => AvailableOutlets.FirstOrDefault(o => o.Id == id)?.Name ?? id));
+            }
+            else
+            {
+                StaffModel = new StaffRequest
+                {
+                    UserId = UserId,
+                    OutletIds = Array.Empty<string>(),
+                    Permissions = string.Empty
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading staff data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            IsLoading = true;
+            
+            StaffModel.OutletIds = SelectedOutlets.Select(name => AvailableOutlets.FirstOrDefault(o => o.Name == name)?.Id ?? name).ToArray();
+            
+            if (ExistingStaffId == null)
+            {
+                // Create new staff permissions
+                await OutletStaffService.CreateAsync(StaffModel);
+                Snackbar.Add("Staff permissions created successfully", Severity.Success);
+            }
+            else
+            {
+                // Update existing staff permissions
+                await OutletStaffService.UpdateAsync(ExistingStaffId, StaffModel);
+                Snackbar.Add("Staff permissions updated successfully", Severity.Success);
+            }
+            
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving staff permissions: {ex.Message}", Severity.Error);
+            IsLoading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void SelectedOutletsChanged(IEnumerable<string> values)
+    {
+        SelectedOutlets = new HashSet<string>(values);
+    }
+
+    public static class StaffValidator
+    {
+        public static Func<object, string, Task<IEnumerable<string>>> ValidateValue = (model, propertyName) =>
+        {
+            var errors = new List<string>();
+            
+            if (propertyName == "Permissions" && model is StaffRequest staff)
+            {
+                if (string.IsNullOrWhiteSpace(staff.Permissions))
+                    errors.Add("Permissions cannot be empty");
+            }
+            
+            return Task.FromResult<IEnumerable<string>>(errors);
+        };
+    }
+}

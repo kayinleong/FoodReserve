@@ -1,0 +1,61 @@
+@inject OutletService OutletService
+@inject IDialogService DialogService
+@using FoodReserve.AdminPortal.Helpers
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Class="mr-2" />
+            Outlet Details
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Outlet != null)
+        {
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Name" Value="@Outlet.Name" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Location" Value="@Outlet.Location" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Operating Hours" Value="@OperatingHoursText" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Capacity" Value="@Outlet.Capacity" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Created At" Value="@Outlet.CreatedAt.ToLocalTime().ToString("g")" 
+                                            ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Last Updated" Value="@Outlet.UpdatedAt.ToLocalTime().ToString("g")" 
+                                            ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+        else
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public OutletResponse Outlet { get; set; } = default!;
+
+    private string OperatingHoursText => OperatingHoursHelper.FormatOperatingHours(Outlet?.OperatingHours);
+
+    private void Close() => MudDialog.Close();
+}
