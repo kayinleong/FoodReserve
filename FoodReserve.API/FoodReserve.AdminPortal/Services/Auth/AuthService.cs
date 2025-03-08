@@ -4,6 +4,9 @@ using FoodReserve.SharedLibrary.Requests;
 using FoodReserve.SharedLibrary.Responses;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using FoodReserve.AdminPortal.Policies;
 
 namespace FoodReserve.AdminPortal.Services.Auth
 {
@@ -15,6 +18,36 @@ namespace FoodReserve.AdminPortal.Services.Auth
         AuthenticationStateProvider authStateProvider
     )
     {
+        private readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNamingPolicy = new SnakeCaseNamingPolicy(),
+            PropertyNameCaseInsensitive = true
+        };
+
+        public async Task<UserResponse> GetUserinfo()
+        {
+            try
+            {
+                var storedTokenResult = await sessionStorage.GetAsync<string>("authToken");
+                var storedToken = storedTokenResult.Success ? storedTokenResult.Value : null;
+
+                var client = httpClientFactory.CreateClient("FoodReserve.API");
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", storedToken);
+
+                var response = await client.GetFromJsonAsync<UserResponse>("api/auth", _jsonOptions);
+                if (response != null)
+                {
+                    return response;
+                }
+                snackbar.Add("An error occurred. Please try again.", Severity.Error);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
         public async Task<bool> LoginAsync(string username, string password)
         {
             try

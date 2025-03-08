@@ -9,14 +9,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace FoodReserve.API.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "SUPERUSER,ADMIN")]
+    [Authorize(Roles = "Superuser,Admin")]
     [Route("api/[controller]")]
     public class OutletUserController(UserService userService) : ControllerBase
     {
         [HttpGet]
         public PaginatedResponse<IEnumerable<UserResponse>> GetAll(int pageNumber, int pageSize, string? keyword)
         {
-            var data = userService.GetAll(pageNumber, pageSize, UserRole.OUTLET, keyword);
+            var data = userService.GetAll(pageNumber, pageSize, UserRole.Outlet, keyword);
 
             return new()
             {
@@ -43,7 +43,7 @@ namespace FoodReserve.API.Controllers
         public async Task<IActionResult> CreateAsync(UserCreateRequest user)
         {
             var data = (User)user;
-            data.Role = UserRole.OUTLET;
+            data.Role = UserRole.Outlet;
 
             await userService.CreateAsync(data);
             return Ok();
@@ -53,7 +53,7 @@ namespace FoodReserve.API.Controllers
         public async Task<IActionResult> UpdateAsync(string id, UserUpdateRequest user)
         {
             var data = (User)user;
-            data.Role = UserRole.OUTLET;
+            data.Role = UserRole.Outlet;
 
             await userService.UpdateByIdAsync(id, data);
             return Ok();

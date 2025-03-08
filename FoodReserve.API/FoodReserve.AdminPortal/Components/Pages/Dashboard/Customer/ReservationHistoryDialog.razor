@@ -1,0 +1,261 @@
+﻿@inject ReservationService ReservationService
+@inject IDialogService DialogService
+@inject OutletService OutletService
+@inject CustomerService CustomerService
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex justify-space-between align-center">
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+                Reservation History for @CustomerName
+            </MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <div class="d-flex justify-center align-center pa-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="ml-3">Loading reservation history...</MudText>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex justify-space-between align-center mb-3">
+                <MudText Typo="Typo.subtitle1">
+                    Total Reservations: <strong>@(reservations?.Count() ?? 0)</strong>
+                </MudText>
+                <MudButton Variant="Variant.Text"
+                           Color="@(Customer.Status == 0 ? Color.Error : Color.Success)"
+                           StartIcon="@(Customer.Status == 0 ? Icons.Material.Filled.PersonOff : Icons.Material.Filled.Person)"
+                           OnClick="ToggleCustomerStatus"
+                           Disabled="isTogglingStatus">
+                    @(Customer.Status == 0 ? "Ban Customer" : "Activate Customer")
+                </MudButton>
+            </div>
+
+            @if (reservations?.Any() == true)
+            {
+                <MudTable Items="@reservations" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="400px">
+                    <HeaderContent>
+                        <MudTh>Reservation Name</MudTh>
+                        <MudTh>Phone Number</MudTh>
+                        <MudTh>Outlet</MudTh>
+                        <MudTh>Guests</MudTh>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="reservation">
+                        <MudTd DataLabel="Name">@reservation.Name</MudTd>
+                        <MudTd DataLabel="Phone">@reservation.PhoneNumber</MudTd>
+                        <MudTd DataLabel="Outlet">
+                            @(outletDetails.TryGetValue(reservation.OutletId, out var outlet) ? outlet.Name : reservation.OutletId)
+                        </MudTd>
+                        <MudTd DataLabel="Guests">@reservation.NumberOfGuest</MudTd>
+                        <MudTd DataLabel="Date">@(reservation.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
+                        <MudTd DataLabel="Status">
+                            @{
+                                var (color, status) = GetStatusInfo(reservation.Status ?? 0);
+                            }
+                            <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Color="Color.Info"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ViewReservation(reservation.Id))"
+                                           Title="View Details" />
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4">No reservations found for this customer.</MudText>
+                    </NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager HideRowsPerPage="true" />
+                    </PagerContent>
+                </MudTable>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-3">
+                    No reservation history found for this customer.
+                </MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string CustomerId { get; set; } = default!;
+    [Parameter] public CustomerResponse Customer { get; set; } = default!;
+    [Parameter] public string CustomerName { get; set; } = default!;
+
+    private IEnumerable<ReservationResponse> reservations = Enumerable.Empty<ReservationResponse>();
+    private Dictionary<string, OutletResponse> outletDetails = new();
+    private bool isLoading = true;
+    private bool isTogglingStatus = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReservations();
+    }
+
+    private async Task LoadReservations()
+    {
+        try
+        {
+            isLoading = true;
+
+            if (!string.IsNullOrEmpty(Customer.UserId))
+            {
+                var response = await ReservationService.GetAllByUserIdAsync(1, 1000, Customer.UserId);
+                if (response?.Response != null)
+                {
+                    reservations = response.Response;
+                }
+            }
+
+            if ((!reservations.Any() || Customer.ReservationIds?.Any() == true) && Customer.ReservationIds != null)
+            {
+                var resvList = new List<ReservationResponse>();
+
+                foreach (var reservationId in Customer.ReservationIds)
+                {
+                    try
+                    {
+                        var reservation = await ReservationService.GetByIdAsync(reservationId);
+                        if (reservation != null)
+                        {
+                            resvList.Add(reservation);
+                        }
+                    }
+                    catch { }
+                }
+
+                if (resvList.Any())
+                {
+                    reservations = resvList;
+                }
+            }
+
+            await LoadOutletDetails();
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load reservation history: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadOutletDetails()
+    {
+        var outletIds = reservations
+            .Select(r => r.OutletId)
+            .Where(id => !string.IsNullOrEmpty(id) && !outletDetails.ContainsKey(id))
+            .Distinct()
+            .ToList();
+
+        foreach (var outletId in outletIds)
+        {
+            try
+            {
+                var outlet = await OutletService.GetByIdAsync(outletId);
+                if (outlet != null)
+                {
+                    outletDetails[outletId] = outlet;
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task ToggleCustomerStatus()
+    {
+        if (isTogglingStatus)
+            return;
+
+        try
+        {
+            isTogglingStatus = true;
+
+            var statusText = Customer.Status == 0 ? "ban" : "activate";
+            var confirmResult = await DialogService.ShowMessageBox(
+                $"Confirm {statusText}",
+                $"Are you sure you want to {statusText} this customer?",
+                yesText: "Yes",
+                cancelText: "No"
+            );
+
+            if (confirmResult == true)
+            {
+                await CustomerService.ToggleStatusAsync(Customer.Id);
+
+                if (Customer.Status.HasValue)
+                    Customer.Status = Customer.Status == 0 ? 1 : 0;
+                else
+                    Customer.Status = 0;
+
+                await DialogService.ShowMessageBox("Success",
+                    $"Customer has been {(Customer.Status == 0 ? "activated" : "banned")}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to update customer status: {ex.Message}");
+        }
+        finally
+        {
+            isTogglingStatus = false;
+            StateHasChanged();
+        }
+    }
+
+    private (Color, string) GetStatusInfo(int status)
+    {
+        return status switch
+        {
+            0 => (Color.Info, "Pending"),
+            1 => (Color.Success, "Approved"),
+            2 => (Color.Error, "Rejected"),
+            3 => (Color.Warning, "Cancelled"),
+            _ => (Color.Default, "Unknown")
+        };
+    }
+
+    private async Task ViewReservation(string id)
+    {
+        try
+        {
+            var reservation = await ReservationService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Reservation"] = reservation
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            await DialogService.ShowAsync<ViewReservationDialog>("Reservation Details", parameters, options);
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load reservation details: {ex.Message}");
+        }
+    }
+
+    private void Close() => MudDialog.Close();
+}

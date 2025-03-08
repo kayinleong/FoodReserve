@@ -1,0 +1,116 @@
+@inject CustomerService CustomerService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Class="mr-2" />
+            Customer Details
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Customer != null)
+        {
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="0">
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="User" Value="@UserDisplayName" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Reservation Count" Value="@(Customer.ReservationIds?.Length ?? 0)" ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Created At" Value="@Customer.CreatedAt.ToLocalTime().ToString("g")"
+                                ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Last Updated" Value="@Customer.UpdatedAt.ToLocalTime().ToString("g")"
+                                ReadOnly="true" Variant="Variant.Outlined" />
+                            </MudItem>
+                            @if (Customer.ReservationIds?.Any() == true)
+                            {
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2">Reservations</MudText>
+                                    <MudList T="string" Dense="true">
+                                        @foreach (var reservationId in Customer.ReservationIds)
+                                        {
+                                            <MudListItem T="string" Icon="@Icons.Material.Filled.EventNote" Text="@reservationId" />
+                                        }
+                                    </MudList>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+        else
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CustomerResponse Customer { get; set; } = default!;
+
+    private UserResponse? user;
+    private string UserDisplayName => GetUserDisplayText(user);
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Customer != null)
+        {
+            await LoadUserDetails();
+        }
+    }
+
+    private async Task LoadUserDetails()
+    {
+        try
+        {
+            isLoading = true;
+            await CustomerService.InitializeAsync();
+
+            var response = await CustomerService.GetUserByIdAsync(Customer.UserId);
+            if (response != null)
+            {
+
+                user = response;
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load user details: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetUserDisplayText(UserResponse? user)
+    {
+        if (user == null)
+            return Customer?.UserId ?? string.Empty;
+
+        if (!string.IsNullOrEmpty(user.Username) && !string.IsNullOrEmpty(user.Email))
+            return $"{user.Username} ({user.Email})";
+        else if (!string.IsNullOrEmpty(user.Email))
+            return user.Email;
+        else if (!string.IsNullOrEmpty(user.Username))
+            return user.Username;
+        else
+            return user.Id;
+    }
+
+    private void Close() => MudDialog.Close();
+}

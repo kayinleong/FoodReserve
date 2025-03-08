@@ -1,0 +1,204 @@
+﻿@inject OutletService OutletService
+@inject CustomerService CustomerService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.EventNote" Class="mr-2" />
+            Reservation Details
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <div class="d-flex justify-center align-center pa-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="ml-3">Loading reservation details...</MudText>
+            </div>
+        }
+        else if (Reservation != null)
+        {
+            <MudPaper Class="pa-4" Elevation="0">
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="0">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <MudText Typo="Typo.h6">Reservation Information</MudText>
+                                </CardHeaderContent>
+                                <CardHeaderActions>
+                                    @{
+                                        var (color, status) = GetStatusInfo(Reservation.Status ?? 0);
+                                    }
+                                    <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
+                                </CardHeaderActions>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <MudList T="object" Dense="true">
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.Person">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Name</MudText>
+                                            <MudText>@(Reservation.Name ?? "N/A")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                    <MudDivider Class="my-2" />
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.Phone">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Phone Number</MudText>
+                                            <MudText>@(Reservation.PhoneNumber ?? "N/A")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                    <MudDivider Class="my-2" />
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.People">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Number of Guests</MudText>
+                                            <MudText>@(Reservation.NumberOfGuest ?? "N/A")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                    <MudDivider Class="my-2" />
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.AccessTime">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Reservation Date/Time</MudText>
+                                            <MudText>@(Reservation.Date?.ToLocalTime().ToString("f") ?? "N/A")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                </MudList>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    
+                    <MudItem xs="12" md="6">
+                        <MudCard Elevation="0">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <MudText Typo="Typo.h6">Additional Information</MudText>
+                                </CardHeaderContent>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <MudList T="object" Dense="true">
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.AccountCircle">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Customer</MudText>
+                                            <MudText>@(userDetails != null ? GetUserDisplayText(userDetails) : "Not associated with user account")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                    <MudDivider Class="my-2" />
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.Restaurant">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Outlet</MudText>
+                                            <MudText>@(outletDetails != null ? outletDetails.Name : "N/A")</MudText>
+                                            @if (outletDetails != null)
+                                            {
+                                                <MudText Typo="Typo.caption">@outletDetails.Location</MudText>
+                                            }
+                                        </div>
+                                    </MudListItem>
+                                    <MudDivider Class="my-2" />
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.Today">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Created</MudText>
+                                            <MudText>@Reservation.CreatedAt.ToLocalTime().ToString("f")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                    <MudDivider Class="my-2" />
+                                    <MudListItem T="object" Icon="@Icons.Material.Filled.Update">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Last Updated</MudText>
+                                            <MudText>@Reservation.UpdatedAt.ToLocalTime().ToString("f")</MudText>
+                                        </div>
+                                    </MudListItem>
+                                </MudList>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">Reservation details not available.</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public ReservationResponse Reservation { get; set; } = default!;
+    
+    private OutletResponse? outletDetails;
+    private UserResponse? userDetails;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDetails();
+    }
+
+    private async Task LoadDetails()
+    {
+        try
+        {
+            isLoading = true;
+            
+            if (!string.IsNullOrEmpty(Reservation.OutletId))
+            {
+                try
+                {
+                    outletDetails = await OutletService.GetByIdAsync(Reservation.OutletId);
+                }
+                catch {  }
+            }
+            
+            if (!string.IsNullOrEmpty(Reservation.UserId))
+            {
+                try
+                {
+                    userDetails = await CustomerService.GetUserByIdAsync(Reservation.UserId);
+                }
+                catch {  }
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load details: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private (Color, string) GetStatusInfo(int status)
+    {
+        return status switch
+        {
+            0 => (Color.Info, "Pending"),
+            1 => (Color.Success, "Approved"),
+            2 => (Color.Error, "Rejected"),
+            3 => (Color.Warning, "Cancelled"),
+            _ => (Color.Default, "Unknown")
+        };
+    }
+    
+    private string GetUserDisplayText(UserResponse user)
+    {
+        if (user == null)
+            return "Unknown User";
+
+        if (!string.IsNullOrEmpty(user.Username) && !string.IsNullOrEmpty(user.Email))
+            return $"{user.Username} ({user.Email})";
+        else if (!string.IsNullOrEmpty(user.Email))
+            return user.Email;
+        else if (!string.IsNullOrEmpty(user.Username))
+            return user.Username;
+        else
+            return user.Id;
+    }
+
+    private void Close() => MudDialog.Close();
+}

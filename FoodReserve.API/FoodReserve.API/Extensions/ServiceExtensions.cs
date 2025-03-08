@@ -10,11 +10,15 @@ namespace FoodReserve.API.Extensions
         {
             services.AddHostedService<DatabaseWorker>();
             services.AddHostedService<UserWorker>();
-            services.AddScoped<UserService>();
-            services.AddScoped<StaffService>();
-            services.AddScoped<OutletService>();
+
             services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
             services.AddSingleton<AuthService>();
+
+            services.AddScoped<UserService>();
+            services.AddScoped<StaffService>();
+            services.AddScoped<CustomerService>();
+            services.AddScoped<OutletService>();
+            services.AddScoped<ReservationService>();
         }
     }
 }

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FoodReserve.API.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "SUPERUSER,ADMIN")]
+    [Authorize(Roles = "Superuser,Admin")]
     [Route("api/[controller]")]
     public class OutletStaffController(StaffService staffService) : ControllerBase
     {

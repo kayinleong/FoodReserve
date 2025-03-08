@@ -1,8 +1,14 @@
 ﻿@page "/dashboard"
+@using System.Globalization
 
 @inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject OutletService OutletService
+@inject CustomerService CustomerService
+@inject ReservationService ReservationService
 
-<AuthorizeView Roles="SUPERUSER,ADMIN">
+<PageTitle>Dashboard</PageTitle>
+
+<AuthorizeView Roles="Superuser,Admin">
     <NotAuthorized>
         <RedirectToLogin />
     </NotAuthorized>
@@ -10,16 +16,256 @@
         <MudText Typo="Typo.h4" Class="ml-3">
             Dashboard
         </MudText>
+
+        <MudGrid Class="mt-4">
+            <!-- Summary Cards Row -->
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Elevation="2" Class="pa-4 mud-height-full">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Store" Color="Color.Primary" Size="Size.Large" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Total Outlets</MudText>
+                            <MudText Typo="Typo.h5">@(outletCount)</MudText>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Elevation="2" Class="pa-4 mud-height-full">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Size="Size.Large" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Total Customers</MudText>
+                            <MudText Typo="Typo.h5">@(customerCount)</MudText>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Elevation="2" Class="pa-4 mud-height-full">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.EventNote" Color="Color.Tertiary" Size="Size.Large" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Total Reservations</MudText>
+                            <MudText Typo="Typo.h5">@(reservationCount)</MudText>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Outlet Chart -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Outlet Distribution by Location</MudText>
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    }
+                    else if (outletsByLocation.Any())
+                    {
+                        <MudChart ChartType="ChartType.Pie" 
+                                  Width="100%" Height="300px"
+                                  InputData="@outletsByLocation.Values.ToArray()"
+                                  InputLabels="@outletsByLocation.Keys.ToArray()" />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">No outlet data available.</MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+            
+            <!-- Customer Chart -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Customer Status Distribution</MudText>
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    }
+                    else if (customersByStatus.Any())
+                    {
+                        <MudChart ChartType="ChartType.Donut"
+                                  Width="100%" Height="300px"
+                                  InputData="@customersByStatus.Values.ToArray()"
+                                  InputLabels="@customersByStatus.Keys.ToArray()" />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">No customer data available.</MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+            
+            <!-- Reservation Chart -->
+            <MudItem xs="12">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Reservation Status</MudText>
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    }
+                    else if (reservationsByStatus.Any())
+                    {
+                        <MudChart ChartType="ChartType.Bar" 
+                                  Width="100%" Height="350px"
+                                  ChartOptions="@(new ChartOptions { YAxisTicks = 5 })"
+                                  InputData="@reservationsByStatus.Values.ToArray()"
+                                  InputLabels="@reservationsByStatus.Keys.ToArray()" />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">No reservation data available.</MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+            
+            <!-- Monthly Reservations Chart -->
+            <MudItem xs="12">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Monthly Reservations (Last 6 Months)</MudText>
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    }
+                    else if (reservationsByMonth.Any())
+                    {
+                        <MudChart ChartType="ChartType.Line" 
+                                  Width="100%" Height="350px"
+                                  ChartOptions="@(new ChartOptions { YAxisTicks = 5 })"
+                                  InputData="@reservationsByMonth.Values.ToArray()"
+                                  InputLabels="@reservationsByMonth.Keys.ToArray()" />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">No monthly reservation data available.</MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
     </Authorized>
 </AuthorizeView>
 
 @code {
     public string UserName;
+    private bool isLoading = true;
+    
+    // Summary statistics
+    private int outletCount = 0;
+    private int customerCount = 0;
+    private int reservationCount = 0;
+    
+    // Chart data
+    private Dictionary<string, double> outletsByLocation = new();
+    private Dictionary<string, double> customersByStatus = new();
+    private Dictionary<string, double> reservationsByStatus = new();
+    private Dictionary<string, double> reservationsByMonth = new();
 
     protected override async Task OnInitializedAsync()
     {
         var authstate = await GetAuthenticationStateAsync.GetAuthenticationStateAsync();
         var user = authstate.User;
         UserName = user.Identity.Name;
+        
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            isLoading = true;
+            
+            // Load outlet data
+            await LoadOutletData();
+            
+            // Load customer data
+            await LoadCustomerData();
+            
+            // Load reservation data
+            await LoadReservationData();
+        }
+        catch (Exception ex)
+        {
+            // Error handling could be added here
+            Console.WriteLine($"Error loading dashboard data: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadOutletData()
+    {
+        var outletResponse = await OutletService.GetAllAsync(1, 1000, null);
+        if (outletResponse?.Response != null)
+        {
+            var outlets = outletResponse.Response.ToList();
+            outletCount = outlets.Count;
+            
+            // Group outlets by location for the pie chart
+            outletsByLocation = outlets
+                .GroupBy(o => string.IsNullOrEmpty(o.Location) ? "Unknown" : o.Location)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (double)g.Count()
+                );
+        }
+    }
+
+    private async Task LoadCustomerData()
+    {
+        var customerResponse = await CustomerService.GetAllAsync(1, 1000, null);
+        if (customerResponse?.Response != null)
+        {
+            var customers = customerResponse.Response.ToList();
+            customerCount = customers.Count;
+            
+            // Group customers by status
+            customersByStatus = new Dictionary<string, double>
+            {
+                { "Active", customers.Count(c => c.Status == 1) },
+                { "Inactive", customers.Count(c => c.Status == 0) }
+            };
+        }
+    }
+
+    private async Task LoadReservationData()
+    {
+        var reservationResponse = await ReservationService.GetAllAsync(1, 1000, null);
+        if (reservationResponse?.Response != null)
+        {
+            var reservations = reservationResponse.Response.ToList();
+            reservationCount = reservations.Count;
+            
+            // Group reservations by status
+            reservationsByStatus = new Dictionary<string, double>
+            {
+                { "Pending", reservations.Count(r => r.Status == 0) },
+                { "Approved", reservations.Count(r => r.Status == 1) },
+                { "Rejected", reservations.Count(r => r.Status == 2) },
+                { "Cancelled", reservations.Count(r => r.Status == 3) }
+            };
+            
+            // Group reservations by month (last 6 months)
+            var today = DateTime.Today;
+            var months = Enumerable.Range(0, 6)
+                .Select(i => today.AddMonths(-i))
+                .OrderBy(d => d)
+                .Select(d => d.ToString("MMM yyyy"))
+                .ToList();
+                
+            reservationsByMonth = months.ToDictionary(
+                month => month,
+                month => {
+                    var monthDate = DateTime.ParseExact(month, "MMM yyyy", CultureInfo.InvariantCulture);
+                    return (double)reservations.Count(r => 
+                        r.Date?.Year == monthDate.Year && 
+                        r.Date?.Month == monthDate.Month);
+                }
+            );
+        }
     }
 }

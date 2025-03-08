@@ -2,9 +2,9 @@
 {
     public enum UserRole
     {
-        GUEST,
-        SUPERUSER,
-        ADMIN,
-        OUTLET
+        Guest,
+        Superuser,
+        Admin,
+        Outlet
     }
 }

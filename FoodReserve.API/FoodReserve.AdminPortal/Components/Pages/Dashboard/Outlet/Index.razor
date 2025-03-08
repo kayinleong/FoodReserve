@@ -3,7 +3,9 @@
 @inject OutletService OutletService
 @inject IDialogService DialogService
 
-<AuthorizeView Roles="SUPERUSER,ADMIN">
+<PageTitle>Outlet</PageTitle>
+
+<AuthorizeView Roles="Superuser,Admin">
     <NotAuthorized>
         <RedirectToLogin />
     </NotAuthorized>

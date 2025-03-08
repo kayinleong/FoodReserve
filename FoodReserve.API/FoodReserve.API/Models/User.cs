@@ -18,7 +18,7 @@ namespace FoodReserve.API.Models
         public string PasswordHashed { get; set; } = string.Empty;
 
         [Required]
-        public UserRole Role { get; set; } = UserRole.GUEST;
+        public UserRole Role { get; set; } = UserRole.Guest;
 
         [Required]
         public bool IsSuspended { get; set; } = false;
@@ -45,7 +45,7 @@ namespace FoodReserve.API.Models
                 Username = userCreateRequest.Username!,
                 Email = userCreateRequest.Email!,
                 PasswordHashed = userCreateRequest.Password!,
-                Role = UserRole.GUEST
+                Role = UserRole.Guest
             };
         }
 
@@ -56,7 +56,7 @@ namespace FoodReserve.API.Models
                 Username = userUpdateRequest.Username!,
                 Email = userUpdateRequest.Email!,
                 PasswordHashed = userUpdateRequest.Password!,
-                Role = UserRole.GUEST,
+                Role = UserRole.Guest,
                 IsSuspended = userUpdateRequest.IsSuspended 
             };
         }

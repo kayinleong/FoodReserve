@@ -2,8 +2,10 @@
 using FoodReserve.API.Services;
 using FoodReserve.SharedLibrary.Requests;
 using FoodReserve.SharedLibrary.Responses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace FoodReserve.API.Controllers
 {
@@ -15,6 +17,15 @@ namespace FoodReserve.API.Controllers
         UserService userService
     ) : ControllerBase
     {
+        [Authorize]
+        [HttpGet]
+        public async Task<UserResponse> Userinfo()
+        {
+            var user = await userService.GetByIdAsync(User.FindFirstValue("id")!);
+
+            return user;
+        }
+
         [HttpPost]
         public async Task<LoginResponse> Login(UserLoginRequest userLoginRequest)
         {

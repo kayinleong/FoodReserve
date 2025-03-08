@@ -15,8 +15,4 @@
 	    <ProjectReference Include="..\FoodReserve.SharedLibrary\FoodReserve.SharedLibrary.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Components\Pages\Dashboard\Customer\" />
-    </ItemGroup>
-
 </Project>

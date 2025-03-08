@@ -1,4 +1,8 @@
 ﻿@inherits LayoutComponentBase
+
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
 <MudThemeProvider />
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -20,10 +24,20 @@
                     Admin
                 </MudText>
                 <MudSpacer />
-                <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+                <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutUser" Title="Logout" />
             </MudAppBar>
             <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-                <MudNavMenu Class="mt-5">
+                @if (userInfo != null)
+                {
+                    <MudDrawerHeader Class="pl-7 pb-2">
+                        <MudStack>
+                            <MudText Typo="Typo.subtitle1">@userInfo.Username</MudText>
+                            <MudText Typo="Typo.caption">@userInfo.Email</MudText>
+                        </MudStack>
+                    </MudDrawerHeader>
+                }
+                <MudNavMenu>
+                    <MudNavLink Match="NavLinkMatch.All" Href="/dashboard">Home</MudNavLink>
                     <MudNavLink Match="NavLinkMatch.Prefix" Href="/dashboard/outlet">Outlet</MudNavLink>
                     <MudNavLink Match="NavLinkMatch.Prefix" Href="/dashboard/staff">Staff</MudNavLink>
                     <MudNavLink Match="NavLinkMatch.Prefix" Href="/dashboard/customer">Customer</MudNavLink>
@@ -40,6 +54,23 @@
 
 @code {
     bool _drawerOpen = true;
+    private UserResponse userInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInfo();
+        await base.OnInitializedAsync();
+    }
+
+    private async Task LoadUserInfo()
+    {
+        userInfo = await AuthService.GetUserinfo();
+    }
+
+    private async Task LogoutUser()
+    {
+        await AuthService.LogoutAsync();
+    }
 
     void DrawerToggle()
     {

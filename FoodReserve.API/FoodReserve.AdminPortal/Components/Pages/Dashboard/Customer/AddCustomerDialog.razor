@@ -1,0 +1,113 @@
+@inject CustomerService CustomerService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" />
+            Add New Customer
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <MudForm @ref="form" Model="CustomerModel" ValidationDelay="0">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudPaper Class="pa-4" Elevation="0">
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudSelect T="string" 
+                                              @bind-Value="CustomerModel.UserId"
+                                              Label="Select User"
+                                              Required="true"
+                                              RequiredError="User selection is required"
+                                              Variant="Variant.Outlined"
+                                              AnchorOrigin="Origin.BottomCenter">
+                                        @foreach (var user in users)
+                                        {
+                                            <MudSelectItem Value="@user.Id">@GetUserDisplayText(user)</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!CanSubmit || isLoading)">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudForm form;
+    private CustomerRequest CustomerModel { get; set; } = new();
+    private bool CanSubmit => !string.IsNullOrEmpty(CustomerModel.UserId);
+    private IEnumerable<UserResponse> users = Enumerable.Empty<UserResponse>();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            isLoading = true;
+            await CustomerService.InitializeAsync();
+            var response = await CustomerService.GetAllUserAsync(1, 9999999, null);
+            users = response.Response;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load users: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetUserDisplayText(UserResponse user)
+    {
+        if (!string.IsNullOrEmpty(user.Username) && !string.IsNullOrEmpty(user.Email))
+            return $"{user.Username} ({user.Email})";
+        else if (!string.IsNullOrEmpty(user.Email))
+            return user.Email;
+        else if (!string.IsNullOrEmpty(user.Username))
+            return user.Username;
+        else
+            return user.Id;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        try
+        {
+            await form.Validate();
+            if (form.IsValid)
+            {
+                await CustomerService.CreateAsync(CustomerModel);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to create customer: {ex.Message}");
+        }
+    }
+}

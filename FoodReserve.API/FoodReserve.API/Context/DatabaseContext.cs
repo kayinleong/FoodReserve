@@ -7,6 +7,8 @@ namespace FoodReserve.API.Context
     {
         public DbSet<User> Users { get; set; }
         public DbSet<Staff> Staff { get; set; }
+        public DbSet<Customer> Customers { get; set; }
         public DbSet<Outlet> Outlets { get; set; }
+        public DbSet<Reservation> Reservations { get; set; }
     }
 }

@@ -1,0 +1,352 @@
+﻿@page "/dashboard/customer/"
+
+@inject CustomerService CustomerService
+@inject ReservationService ReservationService
+@inject IDialogService DialogService
+
+<AuthorizeView Roles="Superuser,Admin">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudText Typo="Typo.h4" Class="ml-3">
+            Customer
+        </MudText>
+
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Class="mb-4">
+                <MudTextField @bind-Value="Keyword"
+                              Label="Search"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              OnAdornmentClick="SearchCustomer"
+                              OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchCustomer(); } })"
+                              Immediate="true"
+                              Size="Size.Small"
+                              Density="Density.Compact"
+                              Style="max-width: 300px;" />
+
+                <MudSpacer />
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Size="Size.Small"
+                           Density="Density.Compact"
+                           OnClick="AddCustomer">
+                    Add Customer
+                </MudButton>
+            </MudStack>
+
+            <MudTable @ref="table"
+                      Dense="true"
+                      Hover="true"
+                      ServerData="@(new Func<TableState, CancellationToken, Task<TableData<CustomerResponse>>>(ServerReload))"
+                      Loading="@(Data == null || isLoadingUserDetails)"
+                      Striped="true"
+                      FixedHeader="true"
+                      FixedFooter="true"
+                      Height="calc(100vh - 300px)"
+                      Items="@Data?.Response">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Customers</MudText>
+                    <MudSpacer />
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortLabel="userId" T="CustomerResponse">User</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortLabel="reservationIds" T="CustomerResponse">Reservation Count</MudTableSortLabel></MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="customer">
+                    <MudTd DataLabel="User">
+                        @if (userDetails.ContainsKey(customer.UserId))
+                        {
+                            @GetUserDisplayText(userDetails[customer.UserId])
+                        }
+                        else
+                        {
+                            <MudSkeleton Animation="Animation.Wave" />
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Reservation Count">@(customer.ReservationIds?.Length ?? 0)</MudTd>
+                    <MudTd>
+                        <MudStack Row="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Color="Color.Info"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ViewCustomer(customer.Id))"
+                                           Title="View" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           OnClick="@(() => EditCustomer(customer.Id))"
+                                           Title="Edit" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => DeleteCustomer(customer.Id))"
+                                           Title="Delete" />
+                            <MudIconButton Icon="@Icons.Material.Filled.FormatListNumbered"
+                                           Color="Color.Secondary"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ShowReservationHistory(customer.Id))"
+                                           Title="Reservation History" />
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4">No customers found.</MudText>
+                </NoRecordsContent>
+                <LoadingContent>
+                    <MudText Class="pa-4">Loading customer data...</MudText>
+                </LoadingContent>
+                <PagerContent>
+                    <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
+                </PagerContent>
+            </MudTable>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+<PageTitle>Customer</PageTitle>
+
+@code {
+    private MudTable<CustomerResponse> table;
+    public PaginatedResponse<IEnumerable<CustomerResponse>>? Data;
+    public int PageNumber = 1;
+    public int PageSize = 10;
+    public string Keyword = string.Empty;
+    private Dictionary<string, UserResponse> userDetails = new();
+    private bool isLoadingUserDetails = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CustomerService.InitializeAsync();
+        await ReservationService.InitializeAsync();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        Data = await CustomerService.GetAllAsync(PageNumber, PageSize, Keyword);
+        if (Data?.Response != null)
+        {
+            await LoadUserDetails();
+        }
+    }
+
+    private async Task LoadUserDetails()
+    {
+        try
+        {
+            isLoadingUserDetails = true;
+
+            var userIds = Data.Response
+                .Select(c => c.UserId)
+                .Where(id => id != null && !userDetails.ContainsKey(id))
+                .Distinct()
+                .ToList();
+
+            if (userIds.Any())
+            {
+                await CustomerService.InitializeAsync();
+                var response = await CustomerService.GetAllUserAsync(1, 9999999, null);
+
+                if (response?.Response != null)
+                {
+                    foreach (var user in response.Response)
+                    {
+                        if (!userDetails.ContainsKey(user.Id))
+                        {
+                            userDetails[user.Id] = user;
+                        }
+                    }
+                }
+
+                foreach (var userId in userIds.Where(id => !userDetails.ContainsKey(id)))
+                {
+                    try
+                    {
+                        var userResponse = await CustomerService.GetAllUserAsync(1, 1, userId);
+                        if (userResponse?.Response != null && userResponse.Response.Any())
+                        {
+                            userDetails[userId] = userResponse.Response.First();
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        finally
+        {
+            isLoadingUserDetails = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<TableData<CustomerResponse>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        PageNumber = state.Page + 1;
+        PageSize = state.PageSize;
+
+        await LoadData();
+
+        return new TableData<CustomerResponse>
+            {
+                TotalItems = Data?.TotalCount ?? 0,
+                Items = Data?.Response ?? Enumerable.Empty<CustomerResponse>()
+            };
+    }
+
+    private string GetUserDisplayText(UserResponse user)
+    {
+        if (user == null)
+            return "Unknown User";
+
+        if (!string.IsNullOrEmpty(user.Username) && !string.IsNullOrEmpty(user.Email))
+            return $"{user.Username} ({user.Email})";
+        else if (!string.IsNullOrEmpty(user.Email))
+            return user.Email;
+        else if (!string.IsNullOrEmpty(user.Username))
+            return user.Username;
+        else
+            return user.Id;
+    }
+
+    private async Task SearchCustomer()
+    {
+        PageNumber = 1;
+        await LoadData();
+        await table.ReloadServerData();
+    }
+
+    private async Task AddCustomer()
+    {
+        var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
+
+        var dialog = await DialogService.ShowAsync<AddCustomerDialog>("Add New Customer", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await table.ReloadServerData();
+        }
+    }
+
+    private async Task ViewCustomer(string id)
+    {
+        try
+        {
+            var customer = await CustomerService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Customer"] = customer
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<ViewCustomerDialog>("Customer Details", parameters, options);
+            await dialog.Result;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load customer details: {ex.Message}");
+        }
+    }
+
+    private async Task EditCustomer(string id)
+    {
+        try
+        {
+            var customer = await CustomerService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Customer"] = customer
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<EditCustomerDialog>("Edit Customer", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                await table.ReloadServerData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load customer for editing: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteCustomer(string id)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Delete Confirmation",
+            "Are you sure you want to delete this customer?",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            try
+            {
+                await CustomerService.DeleteAsync(id);
+                await table.ReloadServerData();
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox("Error", $"Failed to delete customer: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ShowReservationHistory(string customerId)
+    {
+        try
+        {
+            var customer = await CustomerService.GetByIdAsync(customerId);
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Large,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true
+                };
+
+            var parameters = new DialogParameters
+                {
+                    ["CustomerId"] = customerId,
+                    ["Customer"] = customer,
+                    ["CustomerName"] = userDetails.ContainsKey(customer.UserId)
+                        ? GetUserDisplayText(userDetails[customer.UserId])
+                        : customer.UserId
+                };
+
+            var dialog = await DialogService.ShowAsync<ReservationHistoryDialog>("Reservation History", parameters, options);
+            await dialog.Result;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load reservation history: {ex.Message}");
+        }
+    }
+}
