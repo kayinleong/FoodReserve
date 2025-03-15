@@ -1,0 +1,227 @@
+﻿@page "/dashboard/reservation"
+
+@inject ReservationService ReservationService
+@inject IDialogService DialogService
+
+<PageTitle>Reservations</PageTitle>
+
+<MudText Typo="Typo.h4" Class="ml-3">
+    Reservations
+</MudText>
+
+<MudPaper Class="pa-4">
+    <MudStack Row="true" Class="mb-4">
+        <MudTextField @bind-Value="Keyword"
+                      Label="Search"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      OnAdornmentClick="SearchReservation"
+                      OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchReservation(); } })"
+                      Immediate="true"
+                      Size="Size.Small"
+                      Density="Density.Compact"
+                      Style="max-width: 300px;" />
+
+        <MudSpacer />
+    </MudStack>
+
+    <MudTable @ref="table"
+              Dense="true"
+              Hover="true"
+              ServerData="@(new Func<TableState, CancellationToken, Task<TableData<ReservationResponse>>>(ServerReload))"
+              Loading="@(Data == null)"
+              Striped="true"
+              FixedHeader="true"
+              FixedFooter="true"
+              Height="calc(100vh - 300px)"
+              Items="@Data?.Response">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Reservations</MudText>
+            <MudSpacer />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="name" T="ReservationResponse">Name</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="username" T="ReservationResponse">Username</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="phoneNumber" T="ReservationResponse">Phone Number</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="numberOfGuest" T="ReservationResponse">Guests</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="date" T="ReservationResponse">Date</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="status" T="ReservationResponse">Status</MudTableSortLabel></MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate Context="reservation">
+            <MudTd DataLabel="Name">@reservation.Name</MudTd>
+            <MudTd DataLabel="Username">
+                @(string.IsNullOrEmpty(reservation.UserId) ? "-" : reservation.Name ?? "-")
+            </MudTd>
+            <MudTd DataLabel="Phone Number">@reservation.PhoneNumber</MudTd>
+            <MudTd DataLabel="Guests">@reservation.NumberOfGuest</MudTd>
+            <MudTd DataLabel="Date">@(reservation.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
+            <MudTd DataLabel="Status">
+                @{
+                    var (color, status) = GetStatusInfo(reservation.Status ?? 0);
+                }
+                <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudStack Row="true">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                   Color="Color.Info"
+                                   Size="Size.Small"
+                                   OnClick="@(() => ViewReservation(reservation.Id))"
+                                   Title="View" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   OnClick="@(() => EditReservation(reservation.Id))"
+                                   Title="Edit" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   OnClick="@(() => DeleteReservation(reservation.Id))"
+                                   Title="Delete" />
+                </MudStack>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No reservations found.</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText Class="pa-4">Loading reservation data...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
+        </PagerContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private MudTable<ReservationResponse> table;
+    public PaginatedResponse<IEnumerable<ReservationResponse>>? Data;
+    public int PageNumber = 1;
+    public int PageSize = 10;
+    public string Keyword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReservationService.InitializeAsync();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        Data = await ReservationService.GetAllAsync(PageNumber, PageSize, Keyword);
+    }
+
+    private async Task<TableData<ReservationResponse>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        PageNumber = state.Page + 1;
+        PageSize = state.PageSize;
+
+        await LoadData();
+
+        return new TableData<ReservationResponse>
+            {
+                TotalItems = Data?.TotalCount ?? 0,
+                Items = Data?.Response ?? Enumerable.Empty<ReservationResponse>()
+            };
+    }
+
+    private async Task SearchReservation()
+    {
+        PageNumber = 1;
+        await LoadData();
+        await table.ReloadServerData();
+    }
+
+    private async Task ViewReservation(string id)
+    {
+        try
+        {
+            var reservation = await ReservationService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Reservation"] = reservation
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<ViewReservationDialog>("Reservation Details", parameters, options);
+            await dialog.Result;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load reservation details: {ex.Message}");
+        }
+    }
+
+    private async Task EditReservation(string id)
+    {
+        try
+        {
+            var reservation = await ReservationService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Reservation"] = reservation
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<EditReservationDialog>("Edit Reservation", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                await table.ReloadServerData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load reservation for editing: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteReservation(string id)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Delete Confirmation",
+            "Are you sure you want to delete this reservation?",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            try
+            {
+                await ReservationService.DeleteAsync(id);
+                await table.ReloadServerData();
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox("Error", $"Failed to delete reservation: {ex.Message}");
+            }
+        }
+    }
+
+    private (Color, string) GetStatusInfo(int status)
+    {
+        return status switch
+        {
+            0 => (Color.Info, "Pending"),
+            1 => (Color.Success, "Approved"),
+            2 => (Color.Error, "Rejected"),
+            3 => (Color.Warning, "Cancelled"),
+            _ => (Color.Default, "Unknown")
+        };
+    }
+}

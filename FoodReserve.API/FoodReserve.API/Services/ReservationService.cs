@@ -17,6 +17,7 @@ namespace FoodReserve.API.Services
                     context.Set<Reservation>()
                         .Include(r => r.User)
                         .Include(r => r.Outlet)
+                        .OrderByDescending(m => m.CreatedAt)
                         .Select(r => (ReservationResponse)r),
                     pageNumber, pageSize);
             }
@@ -26,71 +27,11 @@ namespace FoodReserve.API.Services
                     context.Set<Reservation>()
                         .Include(r => r.User)
                         .Include(r => r.Outlet)
+                        .OrderByDescending(m => m.CreatedAt)
                         .Where(r => r.Name.Contains(keyword) || r.PhoneNumber.Contains(keyword))
                         .Select(r => (ReservationResponse)r),
                     pageNumber, pageSize);
             }
-        }
-
-        public PagedList<ReservationResponse> GetAllByOutletId(int pageNumber, int pageSize, string outletId, string keyword)
-        {
-            if (string.IsNullOrEmpty(keyword))
-            {
-                return PagedList<ReservationResponse>.ToPagedList(
-                    context.Set<Reservation>()
-                        .Include(r => r.User)
-                        .Include(r => r.Outlet)
-                        .Where(r => r.Outlet.Id == outletId)
-                        .Select(r => (ReservationResponse)r),
-                    pageNumber, pageSize);
-            }
-            else
-            {
-                return PagedList<ReservationResponse>.ToPagedList(
-                    context.Set<Reservation>()
-                        .Include(r => r.User)
-                        .Include(r => r.Outlet)
-                        .Where(r => r.Outlet.Id == outletId)
-                        .Where(r => r.Name.Contains(keyword) || r.PhoneNumber.Contains(keyword))
-                        .Select(r => (ReservationResponse)r),
-                    pageNumber, pageSize);
-            }
-        }
-
-        public PagedList<ReservationResponse> GetAllByStatus(int pageNumber, int pageSize, ReservationStatus status, string keyword)
-        {
-            if (string.IsNullOrEmpty(keyword))
-            {
-                return PagedList<ReservationResponse>.ToPagedList(
-                    context.Set<Reservation>()
-                        .Include(r => r.User)
-                        .Include(r => r.Outlet)
-                        .Where(r => r.Status == status)
-                        .Select(r => (ReservationResponse)r),
-                    pageNumber, pageSize);
-            }
-            else
-            {
-                return PagedList<ReservationResponse>.ToPagedList(
-                    context.Set<Reservation>()
-                        .Include(r => r.User)
-                        .Include(r => r.Outlet)
-                        .Where(r => r.Status == status)
-                        .Where(r => r.Name.Contains(keyword) || r.PhoneNumber.Contains(keyword))
-                        .Select(r => (ReservationResponse)r),
-                    pageNumber, pageSize);
-            }
-        }
-
-        public PagedList<ReservationResponse> GetAllByDateRange(int pageNumber, int pageSize, DateTime startDate, DateTime endDate)
-        {
-            return PagedList<ReservationResponse>.ToPagedList(
-                context.Set<Reservation>()
-                    .Include(r => r.User)
-                    .Include(r => r.Outlet)
-                    .Where(r => r.Date >= startDate && r.Date <= endDate)
-                    .Select(r => (ReservationResponse)r),
-                pageNumber, pageSize);
         }
 
         public PagedList<ReservationResponse> GetAllByUserId(int pageNumber, int pageSize, string userId)
@@ -99,6 +40,7 @@ namespace FoodReserve.API.Services
                 context.Set<Reservation>()
                     .Include(r => r.User)
                     .Include(r => r.Outlet)
+                    .OrderByDescending(m => m.CreatedAt)
                     .Where(r => r.User != null && r.User.Id == userId)
                     .Select(r => (ReservationResponse)r),
                 pageNumber, pageSize);
@@ -144,7 +86,7 @@ namespace FoodReserve.API.Services
                 PhoneNumber = reservationRequest.PhoneNumber!,
                 NumberOfGuest = reservationRequest.NumberOfGuest!,
                 Date = reservationRequest.Date,
-                Status = (ReservationStatus)reservationRequest.Status
+                Status = ReservationStatus.Pending
             };
 
             try
@@ -177,7 +119,7 @@ namespace FoodReserve.API.Services
 
             existingReservation.Name = reservationRequest.Name ?? existingReservation.Name;
             existingReservation.PhoneNumber = reservationRequest.PhoneNumber ?? existingReservation.PhoneNumber;
-            existingReservation.NumberOfGuest = reservationRequest.NumberOfGuest ?? existingReservation.NumberOfGuest;
+            existingReservation.NumberOfGuest = reservationRequest.NumberOfGuest;
             existingReservation.Date = reservationRequest.Date;
             existingReservation.Status = (ReservationStatus)reservationRequest.Status;
 

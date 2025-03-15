@@ -85,7 +85,7 @@ namespace FoodReserve.API.Migrations
                     b.ToTable("Outlets");
                 });
 
-            modelBuilder.Entity("FoodReserve.API.Models.Reservation", b =>
+            modelBuilder.Entity("FoodReserve.API.Models.Queue", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("varchar(255)");
@@ -93,9 +93,6 @@ namespace FoodReserve.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CustomerId")
-                        .HasColumnType("varchar(255)");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime(6)");
@@ -119,6 +116,56 @@ namespace FoodReserve.API.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<int>("QueueNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutletId");
+
+                    b.ToTable("Queues");
+                });
+
+            modelBuilder.Entity("FoodReserve.API.Models.Reservation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CustomerId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("NumberOfGuest")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OutletId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -127,7 +174,6 @@ namespace FoodReserve.API.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("UserId")
-                        .IsRequired()
                         .HasColumnType("varchar(255)");
 
                     b.HasKey("Id");
@@ -237,6 +283,17 @@ namespace FoodReserve.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("FoodReserve.API.Models.Queue", b =>
+                {
+                    b.HasOne("FoodReserve.API.Models.Outlet", "Outlet")
+                        .WithMany()
+                        .HasForeignKey("OutletId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Outlet");
+                });
+
             modelBuilder.Entity("FoodReserve.API.Models.Reservation", b =>
                 {
                     b.HasOne("FoodReserve.API.Models.Customer", null)
@@ -251,9 +308,7 @@ namespace FoodReserve.API.Migrations
 
                     b.HasOne("FoodReserve.API.Models.User", "User")
                         .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UserId");
 
                     b.Navigation("Outlet");
 

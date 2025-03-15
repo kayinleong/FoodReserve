@@ -1,5 +1,5 @@
-
 using FoodReserve.API.Extensions;
+using FoodReserve.API.Hubs;
 using Microsoft.OpenApi.Models;
 
 namespace FoodReserve.API
@@ -9,6 +9,7 @@ namespace FoodReserve.API
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddCorsConfig();
             builder.Services.AddMvcConfig(builder.Configuration, builder.Environment);
             builder.Services.AddResponseCompressionConfig();
             builder.Services.AddAuthenticationConfig(builder.Configuration);
@@ -62,20 +63,19 @@ namespace FoodReserve.API
             var app = builder.Build();
             if (app.Environment.IsDevelopment())
             {
-                app.UseCors("DEV");
                 app.UseSwagger();
                 app.UseSwaggerUI();
                 app.UseDeveloperExceptionPage();
             }
             else
             {
-                app.UseCors("PROD");
                 app.UseHsts();
                 app.UseResponseCompression();
                 app.UseExceptionHandler("/error");
             }
 
             app.UseHttpsRedirection();
+            app.UseCorsConfig();
             app.UseRouting();
             app.UseStaticFiles();
             app.UseAuthentication();
@@ -83,6 +83,8 @@ namespace FoodReserve.API
             app.MapControllerRoute(
                 "areaRoute",
                 "{area:exists}/{controller=Home}/{action=Index}/{id?}");
+
+            app.MapHub<QueueSignalRHub>("/queuehub");
 
             await app.RunAsync();
         }

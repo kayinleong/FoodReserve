@@ -15,6 +15,7 @@ namespace FoodReserve.API.Services
                 return PagedList<StaffResponse>.ToPagedList(
                     context.Set<Staff>()
                         .Include(m => m.User)
+                        .OrderByDescending(m => m.CreatedAt)
                         .Select(m => (StaffResponse)m),
                     pageNumber, pageSize);
             }
@@ -23,6 +24,7 @@ namespace FoodReserve.API.Services
                 return PagedList<StaffResponse>.ToPagedList(
                     context.Set<Staff>()
                         .Include(m => m.User)
+                        .OrderByDescending(m => m.CreatedAt)
                         .Where(m => m.User.Username.Contains(keyword))
                         .Select(m => (StaffResponse)m),
                     pageNumber, pageSize);

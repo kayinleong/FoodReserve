@@ -5,12 +5,12 @@ using FoodReserve.SharedLibrary.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace FoodReserve.API.Controllers
+namespace FoodReserve.API.Controllers.AdminPortal
 {
     [ApiController]
     [Authorize(Roles = "Superuser,Admin")]
-    [Route("api/[controller]")]
-    public class CustomerController(UserService userService, CustomerService customerService) : ControllerBase
+    [Route("api/admin/customer")]
+    public class CustomerAdminController(UserService userService, CustomerService customerService) : ControllerBase
     {
         [HttpGet]
         public PaginatedResponse<IEnumerable<CustomerResponse>> GetAll(int pageNumber, int pageSize, string? keyword)

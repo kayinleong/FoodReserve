@@ -23,21 +23,21 @@ namespace FoodReserve.AdminPortal.Services
 
         public async Task<PaginatedResponse<IEnumerable<StaffResponse>>> GetAllAsync(int pageNumber, int pageSize, string? keyword)
         {
-            var response = await _httpClient.GetAsync($"api/outletstaff?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
+            var response = await _httpClient.GetAsync($"api/admin/outletstaff?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<PaginatedResponse<IEnumerable<StaffResponse>>>(_jsonOptions))!;
         }
 
         public async Task<StaffResponse> GetByIdAsync(string id)
         {
-            var response = await _httpClient.GetAsync($"api/outletstaff/{id}");
+            var response = await _httpClient.GetAsync($"api/admin/outletstaff/{id}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<StaffResponse>(_jsonOptions))!;
         }
 
         public async Task<StaffResponse> GetByUserIdAsync(string userId)
         {
-            var response = await _httpClient.GetAsync($"api/outletstaff/user/{userId}");
+            var response = await _httpClient.GetAsync($"api/admin/outletstaff/user/{userId}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<StaffResponse>(_jsonOptions))!;
         }
@@ -46,7 +46,7 @@ namespace FoodReserve.AdminPortal.Services
         {
             try
             {
-                var response = await _httpClient.GetAsync($"api/outletstaff/user/{userId}");
+                var response = await _httpClient.GetAsync($"api/admin/outletstaff/user/{userId}");
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
@@ -64,19 +64,19 @@ namespace FoodReserve.AdminPortal.Services
 
         public async Task CreateAsync(StaffRequest staff)
         {
-            var response = await _httpClient.PostAsJsonAsync("api/outletstaff", staff, _jsonOptions);
+            var response = await _httpClient.PostAsJsonAsync("api/admin/outletstaff", staff, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task UpdateAsync(string id, StaffRequest staff)
         {
-            var response = await _httpClient.PutAsJsonAsync($"api/outletstaff/{id}", staff, _jsonOptions);
+            var response = await _httpClient.PutAsJsonAsync($"api/admin/outletstaff/{id}", staff, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task DeleteAsync(string id)
         {
-            var response = await _httpClient.DeleteAsync($"api/outletstaff/{id}");
+            var response = await _httpClient.DeleteAsync($"api/admin/outletstaff/{id}");
             response.EnsureSuccessStatusCode();
         }
 

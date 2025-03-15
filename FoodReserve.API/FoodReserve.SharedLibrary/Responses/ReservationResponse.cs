@@ -10,7 +10,7 @@
 
         public string? PhoneNumber { get; set; }
 
-        public string? NumberOfGuest { get; set; }
+        public int? NumberOfGuest { get; set; }
 
         public int? Status { get; set; }
 

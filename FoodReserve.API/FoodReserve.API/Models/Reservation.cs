@@ -7,7 +7,6 @@ namespace FoodReserve.API.Models
 {
     public class Reservation : BaseModel
     {
-        [Required]
         public User? User { get; set; }
 
         [Required]
@@ -20,7 +19,7 @@ namespace FoodReserve.API.Models
         public required string PhoneNumber { get; set; }
 
         [Required]
-        public required string NumberOfGuest { get; set; }
+        public required int NumberOfGuest { get; set; }
 
         [Required]
         public required DateTime Date { get; set; }

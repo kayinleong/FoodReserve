@@ -23,33 +23,33 @@ namespace FoodReserve.AdminPortal.Services
 
         public async Task<PaginatedResponse<IEnumerable<OutletResponse>>> GetAllAsync(int pageNumber, int pageSize, string? keyword)
         {
-            var response = await _httpClient.GetAsync($"api/outlet?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
+            var response = await _httpClient.GetAsync($"api/admin/outlet?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<PaginatedResponse<IEnumerable<OutletResponse>>>(_jsonOptions))!;
         }
 
         public async Task<OutletResponse> GetByIdAsync(string id)
         {
-            var response = await _httpClient.GetAsync($"api/outlet/{id}");
+            var response = await _httpClient.GetAsync($"api/admin/outlet/{id}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<OutletResponse>(_jsonOptions))!;
         }
 
         public async Task CreateAsync(OutletRequest outlet)
         {
-            var response = await _httpClient.PostAsJsonAsync("api/outlet", outlet, _jsonOptions);
+            var response = await _httpClient.PostAsJsonAsync("api/admin/outlet", outlet, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task UpdateAsync(string id, OutletRequest outlet)
         {
-            var response = await _httpClient.PutAsJsonAsync($"api/outlet/{id}", outlet, _jsonOptions);
+            var response = await _httpClient.PutAsJsonAsync($"api/admin/outlet/{id}", outlet, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task DeleteAsync(string id)
         {
-            var response = await _httpClient.DeleteAsync($"api/outlet/{id}");
+            var response = await _httpClient.DeleteAsync($"api/admin/outlet/{id}");
             response.EnsureSuccessStatusCode();
         }
 

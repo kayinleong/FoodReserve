@@ -23,40 +23,40 @@ namespace FoodReserve.AdminPortal.Services
 
         public async Task<PaginatedResponse<IEnumerable<UserResponse>>> GetAllAsync(int pageNumber, int pageSize, string? keyword)
         {
-            var response = await _httpClient.GetAsync($"api/outletuser?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
+            var response = await _httpClient.GetAsync($"api/admin/outletuser?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<PaginatedResponse<IEnumerable<UserResponse>>>(_jsonOptions))!;
         }
 
         public async Task<UserResponse> GetByIdAsync(string id)
         {
-            var response = await _httpClient.GetAsync($"api/outletuser/{id}");
+            var response = await _httpClient.GetAsync($"api/admin/outletuser/{id}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<UserResponse>(_jsonOptions))!;
         }
 
         public async Task<UserResponse> GetByUsernameAsync(string username)
         {
-            var response = await _httpClient.GetAsync($"api/outletuser/username/{username}");
+            var response = await _httpClient.GetAsync($"api/admin/outletuser/username/{username}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<UserResponse>(_jsonOptions))!;
         }
 
         public async Task CreateAsync(UserCreateRequest user)
         {
-            var response = await _httpClient.PostAsJsonAsync("api/outletuser", user, _jsonOptions);
+            var response = await _httpClient.PostAsJsonAsync("api/admin/outletuser", user, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task UpdateAsync(string id, UserUpdateRequest user)
         {
-            var response = await _httpClient.PutAsJsonAsync($"api/outletuser/{id}", user, _jsonOptions);
+            var response = await _httpClient.PutAsJsonAsync($"api/admin/outletuser/{id}", user, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task DeleteAsync(string id)
         {
-            var response = await _httpClient.DeleteAsync($"api/outletuser/{id}");
+            var response = await _httpClient.DeleteAsync($"api/admin/outletuser/{id}");
             response.EnsureSuccessStatusCode();
         }
 

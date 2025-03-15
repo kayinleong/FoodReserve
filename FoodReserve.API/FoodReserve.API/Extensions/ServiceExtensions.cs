@@ -19,6 +19,8 @@ namespace FoodReserve.API.Extensions
             services.AddScoped<CustomerService>();
             services.AddScoped<OutletService>();
             services.AddScoped<ReservationService>();
+            services.AddScoped<QueueService>();
+            services.AddScoped<WhatsAppService>();
         }
     }
 }

@@ -31,7 +31,15 @@ namespace FoodReserve.API.Extensions
 
             services.Configure<RouteOptions>(options => options.AppendTrailingSlash = true);
             services.AddControllers();
+            services.AddSignalR(options =>
+            {
+                options.EnableDetailedErrors = true;
+            });
             services.AddHttpClient();
+            services.AddHttpClient("Meta.WhatsApp", option =>
+            {
+                option.BaseAddress = new Uri(config["Meta.WhatsApp"]!);
+            });
         }
     }
 }

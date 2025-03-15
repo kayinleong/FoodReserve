@@ -1,0 +1,185 @@
+﻿@using FoodReserve.SharedLibrary.Requests
+@inject QueueService QueueService
+@inject OutletService OutletService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+            Edit Queue
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <div class="d-flex justify-center align-center pa-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="ml-3">Loading...</MudText>
+            </div>
+        }
+        else
+        {
+            <MudForm @ref="form" Model="editModel">
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string"
+                                      @bind-Value="editModel.Name"
+                                      Label="Name"
+                                      Required="true"
+                                      RequiredError="Name is required"
+                                      Immediate="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string"
+                                      @bind-Value="editModel.PhoneNumber"
+                                      Label="Phone Number"
+                                      Required="true"
+                                      RequiredError="Phone number is required"
+                                      Immediate="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string"
+                                      @bind-Value="editModel.NumberOfGuest"
+                                      Label="Number of Guests"
+                                      Required="true"
+                                      RequiredError="Number of guests is required"
+                                      Immediate="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="int?"
+                                      @bind-Value="editModel.QueueNumber"
+                                      Label="Queue Number"
+                                      Required="true"
+                                      RequiredError="Queue number is required"
+                                      Immediate="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudDatePicker @bind-Date="editModel.Date"
+                                       Label="Queue Date"
+                                       Required="true"
+                                       RequiredError="Date is required"
+                                       Placeholder="Select Date"
+                                       Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="int?" @bind-Value="editModel.Status"
+                                   Label="Status"
+                                   Variant="Variant.Outlined">
+                            <MudSelectItem T="int?" Value="0">Waiting</MudSelectItem>
+                            <MudSelectItem T="int?" Value="1">Seated</MudSelectItem>
+                            <MudSelectItem T="int?" Value="2">Called</MudSelectItem>
+                            <MudSelectItem T="int?" Value="3">Cancelled</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Submit"
+                   Disabled="@(isProcessing || isLoading)">
+            @if (isProcessing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Processing</MudText>
+            }
+            else
+            {
+                <MudText>Save Changes</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public QueueResponse Queue { get; set; } = default!;
+
+    private MudForm form;
+    private QueueEditModel editModel = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+
+    protected override void OnInitialized()
+    {
+        MapQueueToEditModel();
+        isLoading = false;
+    }
+
+    private void MapQueueToEditModel()
+    {
+        if (Queue != null)
+        {
+            editModel = new QueueEditModel
+                {
+                    Id = Queue.Id,
+                    Name = Queue.Name,
+                    PhoneNumber = Queue.PhoneNumber,
+                    NumberOfGuest = Queue.NumberOfGuest,
+                    QueueNumber = Queue.QueueNumber,
+                    Date = Queue.Date,
+                    Status = Queue.Status,
+                    OutletId = Queue.OutletId
+                };
+        }
+    }
+
+    private async Task Submit()
+    {
+        await form.Validate();
+
+        if (!form.IsValid)
+        {
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+
+            var updateRequest = new SharedLibrary.Requests.QueueRequest
+                {
+                    Name = editModel.Name,
+                    PhoneNumber = editModel.PhoneNumber,
+                    NumberOfGuest = editModel.NumberOfGuest,
+                    QueueNumber = editModel.QueueNumber ?? 0,
+                    Date = editModel.Date.HasValue ? editModel.Date.Value : DateTime.Now,
+                    Status = editModel.Status ?? 0,
+                    OutletId = editModel.OutletId
+                };
+
+            await QueueService.UpdateAsync(editModel.Id, updateRequest);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to update queue: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public class QueueEditModel
+    {
+        public string Id { get; set; }
+        public string? Name { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? NumberOfGuest { get; set; }
+        public int? QueueNumber { get; set; }
+        public DateTime? Date { get; set; }
+        public int? Status { get; set; }
+        public string? OutletId { get; set; }
+    }
+}

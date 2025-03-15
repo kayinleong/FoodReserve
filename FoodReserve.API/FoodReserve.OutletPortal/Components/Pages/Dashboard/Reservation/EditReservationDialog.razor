@@ -1,0 +1,181 @@
+﻿@using FoodReserve.SharedLibrary.Requests
+@inject ReservationService ReservationService
+@inject OutletService OutletService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+            Edit Reservation
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <div class="d-flex justify-center align-center pa-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="ml-3">Loading...</MudText>
+            </div>
+        }
+        else
+        {
+            <MudForm @ref="form" Model="editModel">
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string"
+                                      @bind-Value="editModel.Name"
+                                      Label="Name"
+                                      Required="true"
+                                      RequiredError="Name is required"
+                                      Immediate="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string"
+                                      @bind-Value="editModel.PhoneNumber"
+                                      Label="Phone Number"
+                                      Required="true"
+                                      RequiredError="Phone number is required"
+                                      Immediate="true"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="int?"
+                                      @bind-Value="editModel.NumberOfGuest"
+                                      Label="Number of Guests"
+                                      Required="true"
+                                      RequiredError="Number of guests is required"
+                                      Immediate="true"
+                                      InputType="InputType.Number"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudDatePicker @bind-Date="editModel.Date"
+                                       Label="Reservation Date"
+                                       Required="true"
+                                       RequiredError="Date is required"
+                                       Placeholder="Select Date"
+                                       Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="int" @bind-Value="editModel.Status"
+                                   Label="Status"
+                                   Variant="Variant.Outlined">
+                            <MudSelectItem T="int" Value="0">Pending</MudSelectItem>
+                            <MudSelectItem T="int" Value="1">Approved</MudSelectItem>
+                            <MudSelectItem T="int" Value="2">Rejected</MudSelectItem>
+                            <MudSelectItem T="int" Value="3">Cancelled</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Submit"
+                   Disabled="@(isProcessing || isLoading)">
+            @if (isProcessing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Processing</MudText>
+            }
+            else
+            {
+                <MudText>Save Changes</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public ReservationResponse Reservation { get; set; } = default!;
+
+    private MudForm form;
+    private ReservationEditModel editModel = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+
+    protected override void OnInitialized()
+    {
+        MapReservationToEditModel();
+        isLoading = false;
+    }
+
+    private void MapReservationToEditModel()
+    {
+        if (Reservation != null)
+        {
+            editModel = new ReservationEditModel
+                {
+                    Id = Reservation.Id,
+                    Name = Reservation.Name,
+                    PhoneNumber = Reservation.PhoneNumber,
+                    NumberOfGuest = Reservation.NumberOfGuest,
+                    Date = Reservation.Date,
+                    Status = Reservation.Status ?? 0,
+                    OutletId = Reservation.OutletId,
+                    UserId = Reservation.UserId
+                };
+        }
+    }
+
+    private async Task Submit()
+    {
+        form.Validate();
+
+        if (!form.IsValid)
+        {
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+
+            // Create the request object with explicit handling of nullable Date
+            var updateRequest = new SharedLibrary.Requests.ReservationRequest
+                {
+                    Name = editModel.Name,
+                    PhoneNumber = editModel.PhoneNumber,
+                    NumberOfGuest = editModel.NumberOfGuest ?? 0,
+                // Handle the nullable DateTime to non-nullable conversion
+                    Date = editModel.Date.HasValue ? editModel.Date.Value : DateTime.Now,
+                    Status = editModel.Status,
+                    OutletId = editModel.OutletId,
+                    UserId = editModel.UserId
+                };
+
+            // Pass the ID separately as the first parameter
+            await ReservationService.UpdateAsync(editModel.Id, updateRequest);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to update reservation: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public class ReservationEditModel
+    {
+        public string Id { get; set; }
+        public string? Name { get; set; }
+        public string? PhoneNumber { get; set; }
+        public int? NumberOfGuest { get; set; }
+        public DateTime? Date { get; set; }
+        public int Status { get; set; }
+        public string? OutletId { get; set; }
+        public string? UserId { get; set; }
+    }
+}
+

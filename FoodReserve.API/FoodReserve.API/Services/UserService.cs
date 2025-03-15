@@ -16,6 +16,7 @@ namespace FoodReserve.API.Services
             {
                 return PagedList<UserResponse>.ToPagedList(
                     context.Set<User>()
+                        .OrderByDescending(m => m.CreatedAt)
                         .Select(m => (UserResponse)m),
                     pageNumber, pageSize);
             }
@@ -23,6 +24,7 @@ namespace FoodReserve.API.Services
             {
                 return PagedList<UserResponse>.ToPagedList(
                     context.Set<User>()
+                        .OrderByDescending(m => m.CreatedAt)
                         .Where(m => m.Username.Contains(keyword))
                         .Select(m => (UserResponse)m),
                     pageNumber, pageSize);
@@ -35,6 +37,7 @@ namespace FoodReserve.API.Services
             {
                 return PagedList<UserResponse>.ToPagedList(
                     context.Set<User>()
+                        .OrderByDescending(m => m.CreatedAt)
                         .Where(m => m.Role == role)
                         .Select(m => (UserResponse)m),
                     pageNumber, pageSize);
@@ -43,6 +46,7 @@ namespace FoodReserve.API.Services
             {
                 return PagedList<UserResponse>.ToPagedList(
                     context.Set<User>()
+                        .OrderByDescending(m => m.CreatedAt)
                         .Where(m => m.Role == role)
                         .Where(m => m.Username.Contains(keyword))
                         .Select(m => (UserResponse)m),

@@ -14,6 +14,7 @@ namespace FoodReserve.API.Services
             {
                 return PagedList<OutletResponse>.ToPagedList(
                     context.Set<Outlet>()
+                        .OrderByDescending(m => m.CreatedAt)
                         .Select(m => (OutletResponse)m),
                     pageNumber, pageSize);
             }
@@ -22,6 +23,7 @@ namespace FoodReserve.API.Services
                 return PagedList<OutletResponse>.ToPagedList(
                     context.Set<Outlet>()
                         .Where(m => m.Name.Contains(keyword))
+                        .OrderByDescending(m => m.CreatedAt)
                         .Select(m => (OutletResponse)m),
                     pageNumber, pageSize);
             }

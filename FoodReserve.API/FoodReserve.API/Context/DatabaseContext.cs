@@ -10,5 +10,6 @@ namespace FoodReserve.API.Context
         public DbSet<Customer> Customers { get; set; }
         public DbSet<Outlet> Outlets { get; set; }
         public DbSet<Reservation> Reservations { get; set; }
+        public DbSet<Queue> Queues { get; set; }
     }
 }

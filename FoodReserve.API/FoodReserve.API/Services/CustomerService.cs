@@ -17,6 +17,7 @@ namespace FoodReserve.API.Services
                     context.Set<Customer>()
                         .Include(c => c.User)
                         .Include(c => c.Reservations)
+                        .OrderByDescending(m => m.CreatedAt)
                         .Select(c => (CustomerResponse)c),
                     pageNumber, pageSize);
             }
@@ -26,6 +27,7 @@ namespace FoodReserve.API.Services
                     context.Set<Customer>()
                         .Include(c => c.User)
                         .Include(c => c.Reservations)
+                        .OrderByDescending(m => m.CreatedAt)
                         .Where(c => c.User.Username.Contains(keyword) || c.User.Email.Contains(keyword))
                         .Select(c => (CustomerResponse)c),
                     pageNumber, pageSize);

@@ -23,40 +23,40 @@ namespace FoodReserve.AdminPortal.Services
 
         public async Task<PaginatedResponse<IEnumerable<ReservationResponse>>> GetAllAsync(int pageNumber, int pageSize, string? keyword)
         {
-            var response = await _httpClient.GetAsync($"api/reservation?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
+            var response = await _httpClient.GetAsync($"api/admin/reservation?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<PaginatedResponse<IEnumerable<ReservationResponse>>>(_jsonOptions))!;
         }
 
         public async Task<PaginatedResponse<IEnumerable<ReservationResponse>>> GetAllByUserIdAsync(int pageNumber, int pageSize, string? userId)
         {
-            var response = await _httpClient.GetAsync($"api/reservation/user?pageNumber={pageNumber}&pageSize={pageSize}&userId={userId}");
+            var response = await _httpClient.GetAsync($"api/admin/reservation/user?pageNumber={pageNumber}&pageSize={pageSize}&userId={userId}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<PaginatedResponse<IEnumerable<ReservationResponse>>>(_jsonOptions))!;
         }
 
         public async Task<ReservationResponse> GetByIdAsync(string id)
         {
-            var response = await _httpClient.GetAsync($"api/reservation/{id}");
+            var response = await _httpClient.GetAsync($"api/admin/reservation/{id}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<ReservationResponse>(_jsonOptions))!;
         }
 
         public async Task CreateAsync(ReservationRequest reservation)
         {
-            var response = await _httpClient.PostAsJsonAsync("api/reservation", reservation, _jsonOptions);
+            var response = await _httpClient.PostAsJsonAsync("api/admin/reservation", reservation, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task UpdateAsync(string id, ReservationRequest reservation)
         {
-            var response = await _httpClient.PutAsJsonAsync($"api/reservation/{id}", reservation, _jsonOptions);
+            var response = await _httpClient.PutAsJsonAsync($"api/admin/reservation/{id}", reservation, _jsonOptions);
             response.EnsureSuccessStatusCode();
         }
 
         public async Task DeleteAsync(string id)
         {
-            var response = await _httpClient.DeleteAsync($"api/reservation/{id}");
+            var response = await _httpClient.DeleteAsync($"api/admin/reservation/{id}");
             response.EnsureSuccessStatusCode();
         }
 

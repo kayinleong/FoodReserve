@@ -1,68 +1,45 @@
-﻿using FoodReserve.API.Services;
+﻿using FoodReserve.API.Models;
+using FoodReserve.API.Services;
+using FoodReserve.SharedLibrary.Constants;
 using FoodReserve.SharedLibrary.Requests;
-using FoodReserve.SharedLibrary.Responses;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FoodReserve.API.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "Superuser,Admin")]
     [Route("api/[controller]")]
-    public class ReservationController(ReservationService reservationService) : ControllerBase
+    public class ReservationController(ReservationService reservationService, WhatsAppService whatsAppService) : ControllerBase
     {
-        [HttpGet]
-        public PaginatedResponse<IEnumerable<ReservationResponse>> GetAll(int pageNumber, int pageSize, string? keyword)
-        {
-            var data = reservationService.GetAll(pageNumber, pageSize, keyword);
-
-            return new()
-            {
-                Response = data,
-                CurrentPage = data.CurrentPage,
-                TotalPages = data.TotalPages,
-                TotalCount = data.TotalCount
-            };
-        }
-
-        [HttpGet("user")]
-        public PaginatedResponse<IEnumerable<ReservationResponse>> GetAllByUserId(int pageNumber, int pageSize, string userId)
-        {
-            var data = reservationService.GetAllByUserId(pageNumber, pageSize, userId);
-
-            return new()
-            {
-                Response = data,
-                CurrentPage = data.CurrentPage,
-                TotalPages = data.TotalPages,
-                TotalCount = data.TotalCount
-            };
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ReservationResponse> GetByIdAsync(string id)
-        {
-            return (ReservationResponse)await reservationService.GetByIdAsync(id);
-        }
-
         [HttpPost]
         public async Task<IActionResult> CreateAsync(ReservationRequest data)
         {
             await reservationService.CreateAsync(data);
-            return Ok();
-        }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateAsync(string id, ReservationRequest data)
-        {
-            await reservationService.UpdateByIdAsync(id, data);
-            return Ok();
-        }
+            await whatsAppService.SendMessage(new
+            {
+                MessagingProduct = "whatsapp",
+                To = data.PhoneNumber,
+                Type = "template",
+                Template = new
+                {
+                    Name = "reservation_confirm",
+                    Language = new
+                    {
+                        Code = "en"
+                    },
+                    Components = new List<object>()
+                    {
+                        new {
+                            Type = "body",
+                            Parameters = new {
+                                Type = "text",
+                                Text = data.Name
+                            }
+                        }
+                    }
+                }
+            });
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAsync(string id)
-        {
-            await reservationService.DeleteByIdAsync(id);
             return Ok();
         }
     }

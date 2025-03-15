@@ -1,9 +1,78 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<AuthorizeView>
+    <NotAuthorized>
+        <MudLayout>
+            <MudMainContent>
+                @Body
+            </MudMainContent>
+        </MudLayout>
+    </NotAuthorized>
+    <Authorized>
+        <MudLayout>
+            <MudAppBar Elevation="1">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+                <MudText Typo="Typo.h5" Class="ml-3">
+                    Outlet
+                </MudText>
+                <MudSpacer />
+                <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" Edge="Edge.End" OnClick="LogoutUser" Title="Logout" />
+            </MudAppBar>
+            <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+                @if (userInfo != null)
+                {
+                    <MudDrawerHeader Class="pl-7 pb-2">
+                        <MudStack>
+                            <MudText Typo="Typo.subtitle1">@userInfo.Username</MudText>
+                            <MudText Typo="Typo.caption">@userInfo.Email</MudText>
+                        </MudStack>
+                    </MudDrawerHeader>
+                }
+                <MudNavMenu>
+                    <MudNavLink Match="NavLinkMatch.All" Href="/dashboard">Home</MudNavLink>
+                    <MudNavLink Match="NavLinkMatch.Prefix" Href="/dashboard/queue">Queue</MudNavLink>
+                    <MudNavLink Match="NavLinkMatch.Prefix" Href="/dashboard/reservation">Reservation</MudNavLink>
+                </MudNavMenu>
+            </MudDrawer>
+            <MudMainContent>
+                <MudContainer Class="mt-5 px-4" MaxWidth="MaxWidth.False">
+                    @Body
+                </MudContainer>
+            </MudMainContent>
+        </MudLayout>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    bool _drawerOpen = true;
+    private UserResponse userInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInfo();
+        await base.OnInitializedAsync();
+    }
+
+    private async Task LoadUserInfo()
+    {
+        userInfo = await AuthService.GetUserinfo();
+    }
+
+    private async Task LogoutUser()
+    {
+        await AuthService.LogoutAsync();
+    }
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

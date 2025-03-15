@@ -1,0 +1,223 @@
+﻿@page "/dashboard/queue"
+
+@inject QueueService QueueService
+@inject IDialogService DialogService
+
+<PageTitle>Queues</PageTitle>
+
+<MudText Typo="Typo.h4" Class="ml-3">
+    Queues
+</MudText>
+
+<MudPaper Class="pa-4">
+    <MudStack Row="true" Class="mb-4">
+        <MudTextField @bind-Value="Keyword"
+                      Label="Search"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      OnAdornmentClick="SearchQueue"
+                      OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchQueue(); } })"
+                      Immediate="true"
+                      Size="Size.Small"
+                      Density="Density.Compact"
+                      Style="max-width: 300px;" />
+
+        <MudSpacer />
+    </MudStack>
+
+    <MudTable @ref="table"
+              Dense="true"
+              Hover="true"
+              ServerData="ServerReload"
+              Loading="@(Data == null)"
+              Striped="true"
+              FixedHeader="true"
+              FixedFooter="true"
+              Height="calc(100vh - 300px)"
+              Items="@Data?.Response">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Queues</MudText>
+            <MudSpacer />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="name" T="QueueResponse">Name</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="phoneNumber" T="QueueResponse">Phone Number</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="numberOfGuest" T="QueueResponse">Guests</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="date" T="QueueResponse">Date</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="status" T="QueueResponse">Status</MudTableSortLabel></MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate Context="queue">
+            <MudTd DataLabel="Name">@queue.Name</MudTd>
+            <MudTd DataLabel="Phone Number">@queue.PhoneNumber</MudTd>
+            <MudTd DataLabel="Guests">@queue.NumberOfGuest</MudTd>
+            <MudTd DataLabel="Date">@(queue.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
+            <MudTd DataLabel="Status">
+                @{
+                    var (color, status) = GetStatusInfo(queue.Status ?? 0);
+                }
+                <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudStack Row="true">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                   Color="Color.Info"
+                                   Size="Size.Small"
+                                   OnClick="@(() => ViewQueue(queue.Id))"
+                                   Title="View" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   OnClick="@(() => EditQueue(queue.Id))"
+                                   Title="Edit" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   OnClick="@(() => DeleteQueue(queue.Id))"
+                                   Title="Delete" />
+                </MudStack>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No queues found.</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText Class="pa-4">Loading queue data...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
+        </PagerContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private MudTable<QueueResponse> table;
+    public PaginatedResponse<IEnumerable<QueueResponse>>? Data;
+    public int PageNumber = 1;
+    public int PageSize = 10;
+    public string Keyword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await QueueService.InitializeAsync();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        Data = await QueueService.GetAllAsync(PageNumber, PageSize, Keyword);
+    }
+
+    private async Task<TableData<QueueResponse>> ServerReload(TableState state, CancellationToken cancellationToken)
+    {
+        PageNumber = state.Page + 1;
+        PageSize = state.PageSize;
+
+        await LoadData();
+
+        return new TableData<QueueResponse>
+            {
+                TotalItems = Data?.TotalCount ?? 0,
+                Items = Data?.Response ?? Enumerable.Empty<QueueResponse>()
+            };
+    }
+
+    private async Task SearchQueue()
+    {
+        PageNumber = 1;
+        await LoadData();
+        await table.ReloadServerData();
+    }
+
+    private async Task ViewQueue(string id)
+    {
+        try
+        {
+            var queue = await QueueService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Queue"] = queue
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<ViewQueueDialog>("Queue Details", parameters, options);
+            await dialog.Result;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load queue details: {ex.Message}");
+        }
+    }
+
+    private async Task EditQueue(string id)
+    {
+        try
+        {
+            var queue = await QueueService.GetByIdAsync(id);
+            var parameters = new DialogParameters
+                {
+                    ["Queue"] = queue
+                };
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true
+                };
+
+            var dialog = await DialogService.ShowAsync<EditQueueDialog>("Edit Queue", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                await table.ReloadServerData();
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowMessageBox("Error", $"Failed to load queue for editing: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteQueue(string id)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Delete Confirmation",
+            "Are you sure you want to delete this queue?",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            try
+            {
+                await QueueService.DeleteAsync(id);
+                await table.ReloadServerData();
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowMessageBox("Error", $"Failed to delete queue: {ex.Message}");
+            }
+        }
+    }
+
+    private (Color, string) GetStatusInfo(int status)
+    {
+        return status switch
+        {
+            0 => (Color.Info, "Waiting"),
+            1 => (Color.Success, "Seated"),
+            2 => (Color.Warning, "Called"),
+            3 => (Color.Error, "Cancelled"),
+            _ => (Color.Default, "Unknown")
+        };
+    }
+}
