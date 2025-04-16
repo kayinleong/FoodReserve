@@ -1,133 +1,371 @@
 ﻿@page "/dashboard/queue"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Configuration
 
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject StaffService StaffService
+@inject OutletService OutletService
 @inject QueueService QueueService
 @inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
+@implements IAsyncDisposable
 
 <PageTitle>Queues</PageTitle>
 
-<MudText Typo="Typo.h4" Class="ml-3">
-    Queues
-</MudText>
+<AuthorizeView Roles="Outlet">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudText Typo="Typo.h4" Class="ml-3">
+            Queues
+        </MudText>
 
-<MudPaper Class="pa-4">
-    <MudStack Row="true" Class="mb-4">
-        <MudTextField @bind-Value="Keyword"
-                      Label="Search"
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.End"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      OnAdornmentClick="SearchQueue"
-                      OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchQueue(); } })"
-                      Immediate="true"
-                      Size="Size.Small"
-                      Density="Density.Compact"
-                      Style="max-width: 300px;" />
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Class="mb-4">
+                <MudTextField @bind-Value="Keyword"
+                              Label="Search"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              OnAdornmentClick="SearchQueue"
+                              OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchQueue(); } })"
+                              Immediate="true"
+                              Size="Size.Small"
+                              Density="Density.Compact"
+                              Style="max-width: 300px;" />
 
-        <MudSpacer />
-    </MudStack>
+                <MudSpacer />
 
-    <MudTable @ref="table"
-              Dense="true"
-              Hover="true"
-              ServerData="ServerReload"
-              Loading="@(Data == null)"
-              Striped="true"
-              FixedHeader="true"
-              FixedFooter="true"
-              Height="calc(100vh - 300px)"
-              Items="@Data?.Response">
-        <ToolBarContent>
-            <MudText Typo="Typo.h6">Queues</MudText>
-            <MudSpacer />
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh><MudTableSortLabel SortLabel="name" T="QueueResponse">Name</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="phoneNumber" T="QueueResponse">Phone Number</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="numberOfGuest" T="QueueResponse">Guests</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="date" T="QueueResponse">Date</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="status" T="QueueResponse">Status</MudTableSortLabel></MudTh>
-            <MudTh>Actions</MudTh>
-        </HeaderContent>
-        <RowTemplate Context="queue">
-            <MudTd DataLabel="Name">@queue.Name</MudTd>
-            <MudTd DataLabel="Phone Number">@queue.PhoneNumber</MudTd>
-            <MudTd DataLabel="Guests">@queue.NumberOfGuest</MudTd>
-            <MudTd DataLabel="Date">@(queue.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
-            <MudTd DataLabel="Status">
-                @{
-                    var (color, status) = GetStatusInfo(queue.Status ?? 0);
+                @if (isConnected)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Real-time updates active</MudChip>
                 }
-                <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
-            </MudTd>
-            <MudTd>
-                <MudStack Row="true">
-                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                   Color="Color.Info"
-                                   Size="Size.Small"
-                                   OnClick="@(() => ViewQueue(queue.Id))"
-                                   Title="View" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   OnClick="@(() => EditQueue(queue.Id))"
-                                   Title="Edit" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                   Color="Color.Error"
-                                   Size="Size.Small"
-                                   OnClick="@(() => DeleteQueue(queue.Id))"
-                                   Title="Delete" />
-                </MudStack>
-            </MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">No queues found.</MudText>
-        </NoRecordsContent>
-        <LoadingContent>
-            <MudText Class="pa-4">Loading queue data...</MudText>
-        </LoadingContent>
-        <PagerContent>
-            <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
-        </PagerContent>
-    </MudTable>
-</MudPaper>
+                else
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Real-time disconnected</MudChip>
+                    <MudButton Color="Color.Primary" 
+                               Size="Size.Small" 
+                               Variant="Variant.Outlined" 
+                               OnClick="ConnectToHub">Reconnect</MudButton>
+                }
+            </MudStack>
+
+            @if (OutletQueues.Count > 0)
+            {
+                <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+                    @foreach (var outlet in OutletQueues)
+                    {
+                        <MudTabPanel Text="@outlet.Key">
+                            <MudTable @ref="outlet.Value.TableReference"
+                                      Dense="true"
+                                      Hover="true"
+                                      ServerData="@(new Func<TableState, CancellationToken, Task<TableData<QueueResponse>>>(
+                                              (state, token) => ServerReload(state, token, outlet.Value.OutletId)))"
+                                      Loading="@(outlet.Value.Data == null)"
+                                      Striped="true"
+                                      FixedHeader="true"
+                                      FixedFooter="true"
+                                      Height="calc(100vh - 370px)"
+                                      Items="@outlet.Value.Data?.Response">
+                                <ToolBarContent>
+                                    <MudText Typo="Typo.h6">@outlet.Key Queues</MudText>
+                                    <MudSpacer />
+                                </ToolBarContent>
+                                <HeaderContent>
+                                    <MudTh><MudTableSortLabel SortLabel="name" T="QueueResponse">Name</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="phoneNumber" T="QueueResponse">Phone Number</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="numberOfGuest" T="QueueResponse">Guests</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="date" T="QueueResponse">Date</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="status" T="QueueResponse">Status</MudTableSortLabel></MudTh>
+                                    <MudTh>Actions</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="queue">
+                                    <MudTd DataLabel="Name">@queue.Name</MudTd>
+                                    <MudTd DataLabel="Phone Number">@queue.PhoneNumber</MudTd>
+                                    <MudTd DataLabel="Guests">@queue.NumberOfGuest</MudTd>
+                                    <MudTd DataLabel="Date">@(queue.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        @{
+                                            var (color, status) = GetStatusInfo(queue.Status ?? 0);
+                                        }
+                                        <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
+                                    </MudTd>
+                                    <MudTd>
+                                        <MudStack Row="true">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                                          Color="Color.Info"
+                                                          Size="Size.Small"
+                                                          OnClick="@(() => ViewQueue(queue.Id))"
+                                                          Title="View" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                          Color="Color.Primary"
+                                                          Size="Size.Small"
+                                                          OnClick="@(() => EditQueue(queue.Id))"
+                                                          Title="Edit" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                          Color="Color.Error"
+                                                          Size="Size.Small"
+                                                          OnClick="@(() => DeleteQueue(queue.Id))"
+                                                          Title="Delete" />
+                                        </MudStack>
+                                    </MudTd>
+                                </RowTemplate>
+                                <NoRecordsContent>
+                                    <MudText Class="pa-4">No queues found.</MudText>
+                                </NoRecordsContent>
+                                <LoadingContent>
+                                    <MudText Class="pa-4">Loading queue data...</MudText>
+                                </LoadingContent>
+                                <PagerContent>
+                                    <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
+                                </PagerContent>
+                            </MudTable>
+                        </MudTabPanel>
+                    }
+                </MudTabs>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-3">No outlet assignments found for this staff member.</MudAlert>
+            }
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
 
 @code {
-    private MudTable<QueueResponse> table;
-    public PaginatedResponse<IEnumerable<QueueResponse>>? Data;
+    private string userId = string.Empty;
+    private Dictionary<string, OutletTableData> OutletQueues { get; set; } = new();
     public int PageNumber = 1;
     public int PageSize = 10;
     public string Keyword = string.Empty;
 
+    // SignalR Connection
+    private HubConnection? hubConnection;
+    private bool isConnected => hubConnection?.State == HubConnectionState.Connected;
+    private List<string> queueIdsToMonitor = new();
+
     protected override async Task OnInitializedAsync()
     {
+        var authstate = await GetAuthenticationStateAsync.GetAuthenticationStateAsync();
+        userId = authstate.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)!.Value;
+
         await QueueService.InitializeAsync();
         await LoadData();
+
+        // Set up SignalR connection
+        await SetupSignalRConnection();
+    }
+
+    private async Task SetupSignalRConnection()
+    {
+        try
+        {
+            // Build the hub connection
+            var apiBase = Configuration["API_BASE"] + "/queuehub";
+            if (string.IsNullOrEmpty(apiBase))
+            {
+                Console.WriteLine("API_BASE configuration is missing or empty");
+                return;
+            }
+
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(apiBase)
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Set up event handlers
+            hubConnection.On<string, int>("QueueStatusUpdated", HandleQueueStatusUpdated);
+            hubConnection.On<string>("QueueApproved", HandleQueueApproved);
+            hubConnection.On<string, int>("QueuePositionUpdated", HandleQueuePositionUpdated);
+            hubConnection.On<string>("UpdateQueueTable", async (outletId) => await UpdateQueueTable(outletId));
+
+            // Set up reconnection handler
+            hubConnection.Reconnected += async (connectionId) =>
+            {
+                await JoinQueueGroups();
+                await InvokeAsync(StateHasChanged);
+            };
+
+            // Start the connection
+            await ConnectToHub();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error setting up SignalR connection: {ex.Message}");
+        }
+    }
+
+    private async Task ConnectToHub()
+    {
+        try
+        {
+            if (hubConnection?.State == HubConnectionState.Disconnected)
+            {
+                await hubConnection.StartAsync();
+                await JoinQueueGroups();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting to hub: {ex.Message}");
+        }
+    }
+
+    private async Task JoinQueueGroups()
+    {
+        // Join groups for all queues we want to monitor
+        queueIdsToMonitor.Clear();
+
+        // Add all current queues to monitoring
+        foreach (var outlet in OutletQueues)
+        {
+            var queueItems = outlet.Value.Data?.Response;
+            if (queueItems != null)
+            {
+                foreach (var queue in queueItems)
+                {
+                    if (!queueIdsToMonitor.Contains(queue.Id))
+                    {
+                        queueIdsToMonitor.Add(queue.Id);
+                        await hubConnection!.InvokeAsync("JoinQueue", queue.Id);
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task UpdateQueueTable(string outletId)
+    {
+        // Reload data for the affected outlet
+        foreach (var outlet in OutletQueues)
+        {
+            if (outlet.Value.OutletId == outletId)
+            {
+                await outlet.Value.TableReference.ReloadServerData();
+            }
+        }
+    }
+
+    // SignalR event handlers
+    private async Task HandleQueueStatusUpdated(string queueId, int status)
+    {
+        // Find the queue that was updated
+        foreach (var outlet in OutletQueues)
+        {
+            var queueItems = outlet.Value.Data?.Response?.ToList();
+            if (queueItems != null)
+            {
+                var queue = queueItems.FirstOrDefault(q => q.Id == queueId);
+                if (queue != null)
+                {
+                    // Update the status
+                    queue.Status = status;
+                    await InvokeAsync(StateHasChanged);
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task HandleQueueApproved(string queueId)
+    {
+        // Reload data for affected outlets
+        foreach (var outlet in OutletQueues)
+        {
+            await outlet.Value.TableReference.ReloadServerData();
+        }
+    }
+
+    private async Task HandleQueuePositionUpdated(string queueId, int position)
+    {
+        // Update UI if needed - position updates are usually handled by the client app
+        // but we can still refresh our data to keep it current
+        foreach (var outlet in OutletQueues)
+        {
+            await outlet.Value.TableReference.ReloadServerData();
+        }
     }
 
     private async Task LoadData()
     {
-        Data = await QueueService.GetAllAsync(PageNumber, PageSize, Keyword);
+        await StaffService.InitializeAsync();
+        await OutletService.InitializeAsync();
+        var staffResponse = await StaffService.GetByUserIdAsync(userId);
+
+        // Clear existing outlet data
+        OutletQueues.Clear();
+
+        // Get outlet names and initialize table data for each outlet
+        foreach (var outletId in staffResponse.OutletIds)
+        {
+            var outletResponse = await OutletService.GetByIdAsync(outletId);
+            string outletName = outletResponse?.Name ?? $"Outlet {outletId}";
+
+            var tableData = new OutletTableData
+            {
+                OutletId = outletId,
+                TableReference = new MudTable<QueueResponse>(),
+                Data = await QueueService.GetAllAsync(PageNumber, PageSize, outletId, Keyword)
+            };
+
+            OutletQueues.Add(outletName, tableData);
+        }
+
+        // After loading data, join SignalR groups for all queues
+        if (isConnected)
+        {
+            await JoinQueueGroups();
+        }
     }
 
-    private async Task<TableData<QueueResponse>> ServerReload(TableState state, CancellationToken cancellationToken)
+    private async Task<TableData<QueueResponse>> ServerReload(TableState state, CancellationToken cancellationToken, string outletId)
     {
-        PageNumber = state.Page + 1;
-        PageSize = state.PageSize;
+        int pageNumber = state.Page + 1;
+        int pageSize = state.PageSize;
 
-        await LoadData();
+        var data = await QueueService.GetAllAsync(pageNumber, pageSize, outletId, Keyword);
+
+        // Update the data in the OutletQueues dictionary
+        foreach (var outlet in OutletQueues)
+        {
+            if (outlet.Value.OutletId == outletId)
+            {
+                outlet.Value.Data = data;
+                break;
+            }
+        }
+
+        // Update queue monitoring after getting new data
+        if (isConnected && data?.Response != null)
+        {
+            foreach (var queue in data.Response)
+            {
+                if (!queueIdsToMonitor.Contains(queue.Id))
+                {
+                    queueIdsToMonitor.Add(queue.Id);
+                    await hubConnection!.InvokeAsync("JoinQueue", queue.Id);
+                }
+            }
+        }
 
         return new TableData<QueueResponse>
-            {
-                TotalItems = Data?.TotalCount ?? 0,
-                Items = Data?.Response ?? Enumerable.Empty<QueueResponse>()
-            };
+        {
+            TotalItems = data?.TotalCount ?? 0,
+            Items = data?.Response ?? Enumerable.Empty<QueueResponse>()
+        };
     }
 
     private async Task SearchQueue()
     {
-        PageNumber = 1;
-        await LoadData();
-        await table.ReloadServerData();
+        // Refresh all tables with the new search keyword
+        foreach (var outlet in OutletQueues)
+        {
+            await outlet.Value.TableReference.ReloadServerData();
+        }
     }
 
     private async Task ViewQueue(string id)
@@ -136,16 +374,16 @@
         {
             var queue = await QueueService.GetByIdAsync(id);
             var parameters = new DialogParameters
-                {
-                    ["Queue"] = queue
-                };
+            {
+                ["Queue"] = queue
+            };
 
             var options = new DialogOptions
-                {
-                    CloseButton = true,
-                    MaxWidth = MaxWidth.Medium,
-                    FullWidth = true
-                };
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
 
             var dialog = await DialogService.ShowAsync<ViewQueueDialog>("Queue Details", parameters, options);
             await dialog.Result;
@@ -162,23 +400,27 @@
         {
             var queue = await QueueService.GetByIdAsync(id);
             var parameters = new DialogParameters
-                {
-                    ["Queue"] = queue
-                };
+            {
+                ["Queue"] = queue
+            };
 
             var options = new DialogOptions
-                {
-                    CloseButton = true,
-                    MaxWidth = MaxWidth.Medium,
-                    FullWidth = true
-                };
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
 
             var dialog = await DialogService.ShowAsync<EditQueueDialog>("Edit Queue", parameters, options);
             var result = await dialog.Result;
 
             if (!result.Canceled)
             {
-                await table.ReloadServerData();
+                // Reload all tables to reflect changes
+                foreach (var outlet in OutletQueues)
+                {
+                    await outlet.Value.TableReference.ReloadServerData();
+                }
             }
         }
         catch (Exception ex)
@@ -200,7 +442,19 @@
             try
             {
                 await QueueService.DeleteAsync(id);
-                await table.ReloadServerData();
+
+                // Leave the SignalR group for this queue
+                if (isConnected && queueIdsToMonitor.Contains(id))
+                {
+                    await hubConnection!.InvokeAsync("LeaveQueue", id);
+                    queueIdsToMonitor.Remove(id);
+                }
+
+                // Reload all tables to reflect changes
+                foreach (var outlet in OutletQueues)
+                {
+                    await outlet.Value.TableReference.ReloadServerData();
+                }
             }
             catch (Exception ex)
             {
@@ -219,5 +473,29 @@
             3 => (Color.Error, "Cancelled"),
             _ => (Color.Default, "Unknown")
         };
+    }
+
+    // Implement IAsyncDisposable to properly dispose of the hub connection
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            // Leave all queue groups before disconnecting
+            foreach (var queueId in queueIdsToMonitor)
+            {
+                await hubConnection.InvokeAsync("LeaveQueue", queueId);
+            }
+
+            await hubConnection.DisposeAsync();
+            hubConnection = null;
+        }
+    }
+
+    // Nested class to hold data for each outlet's table
+    public class OutletTableData
+    {
+        public string OutletId { get; set; } = string.Empty;
+        public MudTable<QueueResponse> TableReference { get; set; } = new();
+        public PaginatedResponse<IEnumerable<QueueResponse>>? Data { get; set; }
     }
 }

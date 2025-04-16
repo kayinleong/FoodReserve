@@ -12,9 +12,9 @@ namespace FoodReserve.API.Controllers.OutletPortal
     public class ReservationOutletController(ReservationService reservationService) : ControllerBase
     {
         [HttpGet]
-        public PaginatedResponse<IEnumerable<ReservationResponse>> GetAll(int pageNumber, int pageSize, string? keyword)
+        public PaginatedResponse<IEnumerable<ReservationResponse>> GetAllByOutletId(int pageNumber, int pageSize, string outletId, string? keyword)
         {
-            var data = reservationService.GetAll(pageNumber, pageSize, keyword);
+            var data = reservationService.GetAllByOutletId(pageNumber, pageSize, outletId, keyword);
 
             return new()
             {

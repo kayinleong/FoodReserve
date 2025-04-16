@@ -50,6 +50,9 @@ namespace FoodReserve.API.Hubs
                 
                 // Notify client about their position
                 await Clients.Caller.SendAsync("QueueCreated", newQueue.Id, newQueue.Name, newQueue.NumberOfGuest, newQueue.QueueNumber, position + 1);
+                
+                // Notify all clients to update the queue table
+                await Clients.All.SendAsync("UpdateQueueTable", newQueue.OutletId);
             }
         }
 

@@ -1,137 +1,199 @@
 ﻿@page "/dashboard/reservation"
+@using System.Security.Claims
 
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject StaffService StaffService
+@inject OutletService OutletService
 @inject ReservationService ReservationService
 @inject IDialogService DialogService
 
 <PageTitle>Reservations</PageTitle>
 
-<MudText Typo="Typo.h4" Class="ml-3">
-    Reservations
-</MudText>
+<AuthorizeView Roles="Outlet">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudText Typo="Typo.h4" Class="ml-3">
+            Reservations
+        </MudText>
 
-<MudPaper Class="pa-4">
-    <MudStack Row="true" Class="mb-4">
-        <MudTextField @bind-Value="Keyword"
-                      Label="Search"
-                      Variant="Variant.Outlined"
-                      Adornment="Adornment.End"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      OnAdornmentClick="SearchReservation"
-                      OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchReservation(); } })"
-                      Immediate="true"
-                      Size="Size.Small"
-                      Density="Density.Compact"
-                      Style="max-width: 300px;" />
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Class="mb-4">
+                <MudTextField @bind-Value="Keyword"
+                              Label="Search"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              OnAdornmentClick="SearchReservation"
+                              OnKeyUp="@(async (e) => { if (e.Key == "Enter") { await SearchReservation(); } })"
+                              Immediate="true"
+                              Size="Size.Small"
+                              Density="Density.Compact"
+                              Style="max-width: 300px;" />
 
-        <MudSpacer />
-    </MudStack>
+                <MudSpacer />
+            </MudStack>
 
-    <MudTable @ref="table"
-              Dense="true"
-              Hover="true"
-              ServerData="@(new Func<TableState, CancellationToken, Task<TableData<ReservationResponse>>>(ServerReload))"
-              Loading="@(Data == null)"
-              Striped="true"
-              FixedHeader="true"
-              FixedFooter="true"
-              Height="calc(100vh - 300px)"
-              Items="@Data?.Response">
-        <ToolBarContent>
-            <MudText Typo="Typo.h6">Reservations</MudText>
-            <MudSpacer />
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh><MudTableSortLabel SortLabel="name" T="ReservationResponse">Name</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="username" T="ReservationResponse">Username</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="phoneNumber" T="ReservationResponse">Phone Number</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="numberOfGuest" T="ReservationResponse">Guests</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="date" T="ReservationResponse">Date</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortLabel="status" T="ReservationResponse">Status</MudTableSortLabel></MudTh>
-            <MudTh>Actions</MudTh>
-        </HeaderContent>
-        <RowTemplate Context="reservation">
-            <MudTd DataLabel="Name">@reservation.Name</MudTd>
-            <MudTd DataLabel="Username">
-                @(string.IsNullOrEmpty(reservation.UserId) ? "-" : reservation.Name ?? "-")
-            </MudTd>
-            <MudTd DataLabel="Phone Number">@reservation.PhoneNumber</MudTd>
-            <MudTd DataLabel="Guests">@reservation.NumberOfGuest</MudTd>
-            <MudTd DataLabel="Date">@(reservation.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
-            <MudTd DataLabel="Status">
-                @{
-                    var (color, status) = GetStatusInfo(reservation.Status ?? 0);
-                }
-                <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
-            </MudTd>
-            <MudTd>
-                <MudStack Row="true">
-                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                   Color="Color.Info"
-                                   Size="Size.Small"
-                                   OnClick="@(() => ViewReservation(reservation.Id))"
-                                   Title="View" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   OnClick="@(() => EditReservation(reservation.Id))"
-                                   Title="Edit" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                   Color="Color.Error"
-                                   Size="Size.Small"
-                                   OnClick="@(() => DeleteReservation(reservation.Id))"
-                                   Title="Delete" />
-                </MudStack>
-            </MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">No reservations found.</MudText>
-        </NoRecordsContent>
-        <LoadingContent>
-            <MudText Class="pa-4">Loading reservation data...</MudText>
-        </LoadingContent>
-        <PagerContent>
-            <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
-        </PagerContent>
-    </MudTable>
-</MudPaper>
+            @if (OutletReservations.Count > 0)
+            {
+                <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+                    @foreach (var outlet in OutletReservations)
+                    {
+                        <MudTabPanel Text="@outlet.Key">
+                            <MudTable @ref="outlet.Value.TableReference"
+                                      Dense="true"
+                                      Hover="true"
+                                      ServerData="@(new Func<TableState, CancellationToken, Task<TableData<ReservationResponse>>>(
+                                              (state, token) => ServerReload(state, token, outlet.Value.OutletId)))"
+                                      Loading="@(outlet.Value.Data == null)"
+                                      Striped="true"
+                                      FixedHeader="true"
+                                      FixedFooter="true"
+                                      Height="calc(100vh - 370px)"
+                                      Items="@outlet.Value.Data?.Response">
+                                <ToolBarContent>
+                                    <MudText Typo="Typo.h6">@outlet.Key Reservations</MudText>
+                                    <MudSpacer />
+                                </ToolBarContent>
+                                <HeaderContent>
+                                    <MudTh><MudTableSortLabel SortLabel="name" T="ReservationResponse">Name</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="username" T="ReservationResponse">Username</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="phoneNumber" T="ReservationResponse">Phone Number</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="numberOfGuest" T="ReservationResponse">Guests</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="date" T="ReservationResponse">Date</MudTableSortLabel></MudTh>
+                                    <MudTh><MudTableSortLabel SortLabel="status" T="ReservationResponse">Status</MudTableSortLabel></MudTh>
+                                    <MudTh>Actions</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="reservation">
+                                    <MudTd DataLabel="Name">@reservation.Name</MudTd>
+                                    <MudTd DataLabel="Username">
+                                        @(string.IsNullOrEmpty(reservation.UserId) ? "-" : reservation.Name ?? "-")
+                                    </MudTd>
+                                    <MudTd DataLabel="Phone Number">@reservation.PhoneNumber</MudTd>
+                                    <MudTd DataLabel="Guests">@reservation.NumberOfGuest</MudTd>
+                                    <MudTd DataLabel="Date">@(reservation.Date?.ToLocalTime().ToString("g") ?? "-")</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        @{
+                                            var (color, status) = GetStatusInfo(reservation.Status ?? 0);
+                                        }
+                                        <MudChip T="string" Color="@color" Size="Size.Small">@status</MudChip>
+                                    </MudTd>
+                                    <MudTd>
+                                        <MudStack Row="true">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                                          Color="Color.Info"
+                                                          Size="Size.Small"
+                                                          OnClick="@(() => ViewReservation(reservation.Id))"
+                                                          Title="View" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                          Color="Color.Primary"
+                                                          Size="Size.Small"
+                                                          OnClick="@(() => EditReservation(reservation.Id))"
+                                                          Title="Edit" />
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                          Color="Color.Error"
+                                                          Size="Size.Small"
+                                                          OnClick="@(() => DeleteReservation(reservation.Id))"
+                                                          Title="Delete" />
+                                        </MudStack>
+                                    </MudTd>
+                                </RowTemplate>
+                                <NoRecordsContent>
+                                    <MudText Class="pa-4">No reservations found.</MudText>
+                                </NoRecordsContent>
+                                <LoadingContent>
+                                    <MudText Class="pa-4">Loading reservation data...</MudText>
+                                </LoadingContent>
+                                <PagerContent>
+                                    <MudTablePager HorizontalAlignment="HorizontalAlignment.Right" />
+                                </PagerContent>
+                            </MudTable>
+                        </MudTabPanel>
+                    }
+                </MudTabs>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-3">No outlet assignments found for this staff member.</MudAlert>
+            }
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
 
 @code {
-    private MudTable<ReservationResponse> table;
-    public PaginatedResponse<IEnumerable<ReservationResponse>>? Data;
+    private string userId = string.Empty;
+    private Dictionary<string, OutletTableData> OutletReservations { get; set; } = new();
     public int PageNumber = 1;
     public int PageSize = 10;
     public string Keyword = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
+        var authstate = await GetAuthenticationStateAsync.GetAuthenticationStateAsync();
+        userId = authstate.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)!.Value;
+
         await ReservationService.InitializeAsync();
         await LoadData();
     }
 
     private async Task LoadData()
     {
-        Data = await ReservationService.GetAllAsync(PageNumber, PageSize, Keyword);
+        await StaffService.InitializeAsync();
+        await OutletService.InitializeAsync();
+        var staffResponse = await StaffService.GetByUserIdAsync(userId);
+        
+        // Clear existing outlet data
+        OutletReservations.Clear();
+        
+        // Get outlet names and initialize table data for each outlet
+        foreach (var outletId in staffResponse.OutletIds)
+        {
+            var outletResponse = await OutletService.GetByIdAsync(outletId);
+            string outletName = outletResponse?.Name ?? $"Outlet {outletId}";
+            
+            var tableData = new OutletTableData
+            {
+                OutletId = outletId,
+                TableReference = new MudTable<ReservationResponse>(),
+                Data = await ReservationService.GetAllAsync(PageNumber, PageSize, outletId, Keyword)
+            };
+            
+            OutletReservations.Add(outletName, tableData);
+        }
     }
 
-    private async Task<TableData<ReservationResponse>> ServerReload(TableState state, CancellationToken cancellationToken)
+    private async Task<TableData<ReservationResponse>> ServerReload(TableState state, CancellationToken cancellationToken, string outletId)
     {
-        PageNumber = state.Page + 1;
-        PageSize = state.PageSize;
+        int pageNumber = state.Page + 1;
+        int pageSize = state.PageSize;
 
-        await LoadData();
+        var data = await ReservationService.GetAllAsync(pageNumber, pageSize, outletId, Keyword);
+        
+        // Update the data in the OutletReservations dictionary
+        foreach (var outlet in OutletReservations)
+        {
+            if (outlet.Value.OutletId == outletId)
+            {
+                outlet.Value.Data = data;
+                break;
+            }
+        }
 
         return new TableData<ReservationResponse>
-            {
-                TotalItems = Data?.TotalCount ?? 0,
-                Items = Data?.Response ?? Enumerable.Empty<ReservationResponse>()
-            };
+        {
+            TotalItems = data?.TotalCount ?? 0,
+            Items = data?.Response ?? Enumerable.Empty<ReservationResponse>()
+        };
     }
 
     private async Task SearchReservation()
     {
-        PageNumber = 1;
-        await LoadData();
-        await table.ReloadServerData();
+        // Refresh all tables with the new search keyword
+        foreach (var outlet in OutletReservations)
+        {
+            await outlet.Value.TableReference.ReloadServerData();
+        }
     }
 
     private async Task ViewReservation(string id)
@@ -140,16 +202,16 @@
         {
             var reservation = await ReservationService.GetByIdAsync(id);
             var parameters = new DialogParameters
-                {
-                    ["Reservation"] = reservation
-                };
+            {
+                ["Reservation"] = reservation
+            };
 
             var options = new DialogOptions
-                {
-                    CloseButton = true,
-                    MaxWidth = MaxWidth.Medium,
-                    FullWidth = true
-                };
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
 
             var dialog = await DialogService.ShowAsync<ViewReservationDialog>("Reservation Details", parameters, options);
             await dialog.Result;
@@ -166,23 +228,27 @@
         {
             var reservation = await ReservationService.GetByIdAsync(id);
             var parameters = new DialogParameters
-                {
-                    ["Reservation"] = reservation
-                };
+            {
+                ["Reservation"] = reservation
+            };
 
             var options = new DialogOptions
-                {
-                    CloseButton = true,
-                    MaxWidth = MaxWidth.Medium,
-                    FullWidth = true
-                };
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true
+            };
 
             var dialog = await DialogService.ShowAsync<EditReservationDialog>("Edit Reservation", parameters, options);
             var result = await dialog.Result;
 
             if (!result.Canceled)
             {
-                await table.ReloadServerData();
+                // Reload all tables to reflect changes
+                foreach (var outlet in OutletReservations)
+                {
+                    await outlet.Value.TableReference.ReloadServerData();
+                }
             }
         }
         catch (Exception ex)
@@ -204,7 +270,12 @@
             try
             {
                 await ReservationService.DeleteAsync(id);
-                await table.ReloadServerData();
+                
+                // Reload all tables to reflect changes
+                foreach (var outlet in OutletReservations)
+                {
+                    await outlet.Value.TableReference.ReloadServerData();
+                }
             }
             catch (Exception ex)
             {
@@ -223,5 +294,13 @@
             3 => (Color.Warning, "Cancelled"),
             _ => (Color.Default, "Unknown")
         };
+    }
+
+    // Nested class to hold data for each outlet's table
+    public class OutletTableData
+    {
+        public string OutletId { get; set; } = string.Empty;
+        public MudTable<ReservationResponse> TableReference { get; set; } = new();
+        public PaginatedResponse<IEnumerable<ReservationResponse>>? Data { get; set; }
     }
 }

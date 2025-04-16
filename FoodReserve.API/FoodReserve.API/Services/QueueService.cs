@@ -18,7 +18,8 @@ namespace FoodReserve.API.Services
                 return PagedList<QueueResponse>.ToPagedList(
                     context.Set<Queue>()
                         .Include(r => r.Outlet)
-                        .OrderByDescending(m => m.CreatedAt)
+                        .OrderBy(m => m.UpdatedAt.Date)
+                        .ThenBy(m => m.UpdatedAt.TimeOfDay)
                         .Select(r => (QueueResponse)r),
                     pageNumber, pageSize);
             }
@@ -27,8 +28,9 @@ namespace FoodReserve.API.Services
                 return PagedList<QueueResponse>.ToPagedList(
                     context.Set<Queue>()
                         .Include(r => r.Outlet)
-                        .OrderByDescending(m => m.CreatedAt)
                         .Where(r => r.Name.Contains(keyword) || r.PhoneNumber.Contains(keyword))
+                        .OrderBy(m => m.UpdatedAt.Date)
+                        .ThenBy(m => m.UpdatedAt.TimeOfDay)
                         .Select(r => (QueueResponse)r),
                     pageNumber, pageSize);
             }
@@ -41,8 +43,9 @@ namespace FoodReserve.API.Services
                 return PagedList<QueueResponse>.ToPagedList(
                     context.Set<Queue>()
                         .Include(r => r.Outlet)
-                        .OrderByDescending(m => m.CreatedAt)
                         .Where(r => r.Outlet.Id == outletId)
+                        .OrderBy(m => m.UpdatedAt.Date)
+                        .ThenBy(m => m.UpdatedAt.TimeOfDay)
                         .Select(r => (QueueResponse)r),
                     pageNumber, pageSize);
             }
@@ -51,9 +54,10 @@ namespace FoodReserve.API.Services
                 return PagedList<QueueResponse>.ToPagedList(
                     context.Set<Queue>()
                         .Include(r => r.Outlet)
-                        .OrderByDescending(m => m.CreatedAt)
                         .Where(r => r.Outlet.Id == outletId)
                         .Where(r => r.Name.Contains(keyword) || r.PhoneNumber.Contains(keyword))
+                        .OrderBy(m => m.UpdatedAt.Date)
+                        .ThenBy(m => m.UpdatedAt.TimeOfDay)
                         .Select(r => (QueueResponse)r),
                     pageNumber, pageSize);
             }
@@ -70,7 +74,8 @@ namespace FoodReserve.API.Services
         {
             var latestQueue = await context.Queues
                 .Where(q => q.Date.Date == date.Date && q.Outlet.Id == outletId)
-                .OrderByDescending(q => q.QueueNumber)
+                .OrderByDescending(m => m.UpdatedAt.Date)
+                .ThenByDescending(m => m.UpdatedAt.TimeOfDay)
                 .FirstOrDefaultAsync();
 
             return latestQueue?.QueueNumber + 1 ?? 1;

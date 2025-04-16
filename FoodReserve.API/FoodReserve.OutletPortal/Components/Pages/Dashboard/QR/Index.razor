@@ -1,0 +1,112 @@
+﻿@page "/dashboard/qr"
+@using QRCoder
+@using System.Security.Claims
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject StaffService StaffService
+@inject OutletService OutletService
+
+<PageTitle>QR Code Generation</PageTitle>
+
+<AuthorizeView Roles="Outlet">
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+    <Authorized>
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h5" Class="mb-4">Queue QR Codes</MudText>
+
+            @if (OutletQRCodes.Count > 0)
+            {
+                <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+                    @foreach (var outlet in OutletQRCodes)
+                    {
+                        <MudTabPanel Text="@outlet.Key">
+                            <div class="d-flex flex-column align-center">
+                                <img src="@outlet.Value.QRCodeImageUrl" alt="QR Code" style="width: 300px; height: 300px;" />
+                                <MudText Class="mt-4">Scan this QR code to join the queue at @outlet.Key</MudText>
+                                <MudButton Color="Color.Primary"
+                                           Variant="Variant.Filled"
+                                           OnClick="@(() => DownloadQRCode(outlet.Value.OutletId, outlet.Key))"
+                                           Class="mt-4">
+                                    Download QR Code
+                                </MudButton>
+                            </div>
+                        </MudTabPanel>
+                    }
+                </MudTabs>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-3">No outlet assignments found for this staff member.</MudAlert>
+            }
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private Dictionary<string, OutletQRCodeData> OutletQRCodes { get; set; } = new();
+    private string userId = string.Empty;
+
+    public class OutletQRCodeData
+    {
+        public string OutletId { get; set; } = string.Empty;
+        public string QRCodeImageUrl { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authstate = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            userId = authstate.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)!.Value;
+
+            await StaffService.InitializeAsync();
+            await OutletService.InitializeAsync();
+
+            var staffResponse = await StaffService.GetByUserIdAsync(userId);
+
+            // Clear existing outlet data
+            OutletQRCodes.Clear();
+
+            // Generate QR codes for each outlet
+            foreach (var outletId in staffResponse.OutletIds)
+            {
+                var outletResponse = await OutletService.GetByIdAsync(outletId);
+                string outletName = outletResponse?.Name ?? $"Outlet {outletId}";
+
+                var qrCodeData = new OutletQRCodeData
+                    {
+                        OutletId = outletId,
+                        QRCodeImageUrl = GenerateQRCode(outletId)
+                    };
+
+                OutletQRCodes.Add(outletName, qrCodeData);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing QR codes: {ex.Message}");
+        }
+    }
+
+    private string GenerateQRCode(string outletId)
+    {
+        var queueUrl = $"http://localhost:2000/queue?outlet={outletId}";
+        using var qrGenerator = new QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(queueUrl, QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new PngByteQRCode(qrCodeData);
+        var qrCodeBytes = qrCode.GetGraphic(20);
+        return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+    }
+
+    private async Task DownloadQRCode(string outletId, string outletName)
+    {
+        if (OutletQRCodes.TryGetValue(outletName, out var qrCodeData))
+        {
+            var fileName = $"queue-qr-code-{outletName.ToLower().Replace(" ", "-")}.png";
+            await JSRuntime.InvokeVoidAsync("downloadFile", qrCodeData.QRCodeImageUrl, fileName);
+        }
+    }
+}

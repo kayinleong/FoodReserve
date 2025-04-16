@@ -21,9 +21,9 @@ namespace FoodReserve.OutletPortal.Services
             await SetAuthToken(sessionStorage);
         }
 
-        public async Task<PaginatedResponse<IEnumerable<ReservationResponse>>> GetAllAsync(int pageNumber, int pageSize, string? keyword)
+        public async Task<PaginatedResponse<IEnumerable<ReservationResponse>>> GetAllAsync(int pageNumber, int pageSize, string outletId, string? keyword)
         {
-            var response = await _httpClient.GetAsync($"api/outlet/reservation?pageNumber={pageNumber}&pageSize={pageSize}&keyword={keyword}");
+            var response = await _httpClient.GetAsync($"api/outlet/reservation?pageNumber={pageNumber}&pageSize={pageSize}&outletId={outletId}&keyword={keyword}");
             response.EnsureSuccessStatusCode();
             return (await response.Content.ReadFromJsonAsync<PaginatedResponse<IEnumerable<ReservationResponse>>>(_jsonOptions))!;
         }

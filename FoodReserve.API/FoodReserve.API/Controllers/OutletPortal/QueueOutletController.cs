@@ -12,9 +12,9 @@ namespace FoodReserve.API.Controllers.OutletPortal
     public class QueueOutletController(QueueService queueService) : ControllerBase
     {
         [HttpGet]
-        public PaginatedResponse<IEnumerable<QueueResponse>> GetAll(int pageNumber, int pageSize, string? keyword)
+        public PaginatedResponse<IEnumerable<QueueResponse>> GetAllByOutlet(int pageNumber, int pageSize, string outletId, string? keyword)
         {
-            var data = queueService.GetAll(pageNumber, pageSize, keyword);
+            var data = queueService.GetAllByOutletId(pageNumber, pageSize, outletId, keyword);
 
             return new()
             {

@@ -14,7 +14,10 @@ namespace FoodReserve.API.Services
             {
                 return PagedList<OutletResponse>.ToPagedList(
                     context.Set<Outlet>()
-                        .OrderByDescending(m => m.CreatedAt)
+                        .OrderByDescending(m => m.UpdatedAt.Date)
+                        .ThenByDescending(m => m.UpdatedAt.TimeOfDay)
+                        .OrderByDescending(m => m.CreatedAt.Date)
+                        .ThenByDescending(m => m.CreatedAt.TimeOfDay)
                         .Select(m => (OutletResponse)m),
                     pageNumber, pageSize);
             }
@@ -23,7 +26,10 @@ namespace FoodReserve.API.Services
                 return PagedList<OutletResponse>.ToPagedList(
                     context.Set<Outlet>()
                         .Where(m => m.Name.Contains(keyword))
-                        .OrderByDescending(m => m.CreatedAt)
+                        .OrderByDescending(m => m.UpdatedAt.Date)
+                        .ThenByDescending(m => m.UpdatedAt.TimeOfDay)
+                        .OrderByDescending(m => m.CreatedAt.Date)
+                        .ThenByDescending(m => m.CreatedAt.TimeOfDay)
                         .Select(m => (OutletResponse)m),
                     pageNumber, pageSize);
             }
